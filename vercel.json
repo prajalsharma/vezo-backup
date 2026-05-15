@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "installCommand": "cd .. && npm install --legacy-peer-deps",
+  "buildCommand": "cd .. && npm run build --workspace=mezo-venft-frontend",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}
