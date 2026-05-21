@@ -1,0 +1,492 @@
+// Contract ABIs for Vezo Exchange
+
+export const VeNFTMarketplaceABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+      { internalType: "uint256", name: "price", type: "uint256" },
+      { internalType: "address", name: "paymentToken", type: "address" },
+    ],
+    name: "listNFT",
+    outputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "buyNFT",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "cancelListing",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "listingId", type: "uint256" },
+      { internalType: "uint256", name: "newPrice", type: "uint256" },
+    ],
+    name: "updatePrice",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "getListingWithValue",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "seller", type: "address" },
+          { internalType: "address", name: "collection", type: "address" },
+          { internalType: "uint256", name: "tokenId", type: "uint256" },
+          { internalType: "uint256", name: "price", type: "uint256" },
+          { internalType: "address", name: "paymentToken", type: "address" },
+          { internalType: "uint256", name: "createdAt", type: "uint256" },
+          { internalType: "bool", name: "active", type: "bool" },
+        ],
+        internalType: "struct VeNFTMarketplace.Listing",
+        name: "listing",
+        type: "tuple",
+      },
+      { internalType: "uint256", name: "intrinsicValue", type: "uint256" },
+      { internalType: "uint256", name: "lockEnd", type: "uint256" },
+      { internalType: "uint256", name: "votingPower", type: "uint256" },
+      { internalType: "uint256", name: "discountBps", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "offset", type: "uint256" },
+      { internalType: "uint256", name: "limit", type: "uint256" },
+    ],
+    name: "getActiveListings",
+    outputs: [
+      {
+        components: [
+          { internalType: "address", name: "seller", type: "address" },
+          { internalType: "address", name: "collection", type: "address" },
+          { internalType: "uint256", name: "tokenId", type: "uint256" },
+          { internalType: "uint256", name: "price", type: "uint256" },
+          { internalType: "address", name: "paymentToken", type: "address" },
+          { internalType: "uint256", name: "createdAt", type: "uint256" },
+          { internalType: "bool", name: "active", type: "bool" },
+        ],
+        internalType: "struct VeNFTMarketplace.Listing[]",
+        name: "result",
+        type: "tuple[]",
+      },
+      { internalType: "uint256", name: "total", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "listings",
+    outputs: [
+      { internalType: "address", name: "seller", type: "address" },
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+      { internalType: "uint256", name: "price", type: "uint256" },
+      { internalType: "address", name: "paymentToken", type: "address" },
+      { internalType: "uint256", name: "createdAt", type: "uint256" },
+      { internalType: "bool", name: "active", type: "bool" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "nextListingId",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "address", name: "paymentToken", type: "address" },
+    ],
+    name: "getFloorPrice",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "listingId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "seller", type: "address" },
+      { indexed: true, internalType: "address", name: "collection", type: "address" },
+      { indexed: false, internalType: "uint256", name: "tokenId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "price", type: "uint256" },
+      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
+    ],
+    name: "Listed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "listingId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "buyer", type: "address" },
+      { indexed: true, internalType: "address", name: "seller", type: "address" },
+      { indexed: false, internalType: "uint256", name: "price", type: "uint256" },
+    ],
+    name: "Purchased",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "Cancelled",
+    type: "event",
+  },
+] as const;
+
+export const MezoVeNFTAdapterABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+    ],
+    name: "getIntrinsicValue",
+    outputs: [
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "lockEnd", type: "uint256" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+    ],
+    name: "getVotingPower",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+    ],
+    name: "isExpired",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "listPrice", type: "uint256" },
+      { internalType: "uint256", name: "intrinsicValue", type: "uint256" },
+    ],
+    name: "calculateDiscount",
+    outputs: [{ internalType: "uint256", name: "discountBps", type: "uint256" }],
+    stateMutability: "pure",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+    ],
+    name: "getTimeRemaining",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "collection", type: "address" }],
+    name: "isSupported",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;
+
+// ─── VeNFTBidding ABI (new module — additive) ─────────────────────────────────
+export const VeNFTBiddingABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "collection",          type: "address" },
+      { internalType: "uint256", name: "tokenId",             type: "uint256" },
+      { internalType: "address", name: "paymentToken",        type: "address" },
+      { internalType: "uint256", name: "amount",              type: "uint256" },
+      { internalType: "uint256", name: "expiry",              type: "uint256" },
+      {
+        components: [
+          { internalType: "uint256", name: "minIntrinsicValue",  type: "uint256" },
+          { internalType: "uint256", name: "maxIntrinsicValue",  type: "uint256" },
+          { internalType: "uint256", name: "maxLockDuration",    type: "uint256" },
+          { internalType: "uint256", name: "minVotingPower",     type: "uint256" },
+          { internalType: "bool",    name: "requireAutoMaxLock", type: "bool"    },
+        ],
+        internalType: "struct VeNFTBidding.BidFilter",
+        name: "filter",
+        type: "tuple",
+      },
+      { internalType: "uint256", name: "minIntrinsicValue",   type: "uint256" },
+      { internalType: "uint256", name: "maxIntrinsicValue",   type: "uint256" },
+      { internalType: "uint256", name: "minVotingPower",      type: "uint256" },
+      { internalType: "uint256", name: "minLockDuration",     type: "uint256" },
+      { internalType: "bool",    name: "requireAutoMaxLock",  type: "bool"    },
+    ],
+    name: "createBid",
+    outputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
+    name: "cancelBid",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "bidId", type: "uint256" }],
+    name: "acceptBid",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "bidder", type: "address" }],
+    name: "getBidderBids",
+    outputs: [{ internalType: "uint256[]", name: "", type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId",    type: "uint256" },
+    ],
+    name: "getTokenBids",
+    outputs: [{ internalType: "uint256[]", name: "", type: "uint256[]" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId",    type: "uint256" },
+    ],
+    name: "getActiveTokenBids",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint256", name: "id",                  type: "uint256" },
+          { internalType: "address", name: "bidder",              type: "address" },
+          { internalType: "address", name: "collection",          type: "address" },
+          { internalType: "uint256", name: "tokenId",             type: "uint256" },
+          { internalType: "address", name: "paymentToken",        type: "address" },
+          { internalType: "uint256", name: "amount",              type: "uint256" },
+          { internalType: "uint256", name: "expiry",              type: "uint256" },
+          { internalType: "bool",    name: "active",              type: "bool"    },
+          { internalType: "uint256", name: "minIntrinsicValue",   type: "uint256" },
+          { internalType: "uint256", name: "maxIntrinsicValue",   type: "uint256" },
+          { internalType: "uint256", name: "minVotingPower",      type: "uint256" },
+          { internalType: "uint256", name: "minLockDuration",     type: "uint256" },
+          { internalType: "bool",    name: "requireAutoMaxLock",  type: "bool"    },
+        ],
+        internalType: "struct VeNFTBidding.Bid[]",
+        name: "activeBids",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    name: "bids",
+    outputs: [
+      { internalType: "uint256", name: "id",                  type: "uint256" },
+      { internalType: "address", name: "bidder",              type: "address" },
+      { internalType: "address", name: "collection",          type: "address" },
+      { internalType: "uint256", name: "tokenId",             type: "uint256" },
+      { internalType: "address", name: "paymentToken",        type: "address" },
+      { internalType: "uint256", name: "amount",              type: "uint256" },
+      { internalType: "uint256", name: "expiry",              type: "uint256" },
+      { internalType: "bool",    name: "active",              type: "bool"    },
+      { internalType: "uint256", name: "minIntrinsicValue",   type: "uint256" },
+      { internalType: "uint256", name: "maxIntrinsicValue",   type: "uint256" },
+      { internalType: "uint256", name: "minVotingPower",      type: "uint256" },
+      { internalType: "uint256", name: "minLockDuration",     type: "uint256" },
+      { internalType: "bool",    name: "requireAutoMaxLock",  type: "bool"    },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "collection", type: "address" },
+      { internalType: "uint256", name: "tokenId",    type: "uint256" },
+      { internalType: "bool",    name: "watching",   type: "bool"    },
+    ],
+    name: "emitWatchlistUpdate",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  // Events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true,  internalType: "uint256", name: "bidId",        type: "uint256" },
+      { indexed: true,  internalType: "address", name: "bidder",       type: "address" },
+      { indexed: true,  internalType: "address", name: "collection",   type: "address" },
+      { indexed: false, internalType: "uint256", name: "tokenId",      type: "uint256" },
+      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount",       type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "expiry",       type: "uint256" },
+    ],
+    name: "BidCreated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true,  internalType: "uint256", name: "bidId",      type: "uint256" },
+      { indexed: true,  internalType: "address", name: "bidder",     type: "address" },
+    ],
+    name: "BidCancelled",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true,  internalType: "uint256", name: "bidId",      type: "uint256" },
+      { indexed: true,  internalType: "address", name: "seller",     type: "address" },
+      { indexed: true,  internalType: "address", name: "bidder",     type: "address" },
+      { indexed: false, internalType: "address", name: "collection", type: "address" },
+      { indexed: false, internalType: "uint256", name: "tokenId",    type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amount",     type: "uint256" },
+    ],
+    name: "BidAccepted",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true,  internalType: "address", name: "user",       type: "address" },
+      { indexed: true,  internalType: "address", name: "collection", type: "address" },
+      { indexed: false, internalType: "uint256", name: "tokenId",    type: "uint256" },
+      { indexed: false, internalType: "bool",    name: "watching",   type: "bool"    },
+    ],
+    name: "WatchlistUpdated",
+    type: "event",
+  },
+] as const;
+
+// ─── ListingSnapshotStore ABI (new module) ────────────────────────────────────
+export const ListingSnapshotStoreABI = [
+  {
+    inputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "getSnapshot",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint256", name: "intrinsicValueAtListing", type: "uint256" },
+          { internalType: "uint256", name: "votingPowerAtListing",    type: "uint256" },
+          { internalType: "uint256", name: "lockDurationAtListing",   type: "uint256" },
+          { internalType: "uint256", name: "lockEndAtListing",        type: "uint256" },
+          { internalType: "uint256", name: "discountBpsAtListing",    type: "uint256" },
+          { internalType: "uint256", name: "usdValueAtListing",       type: "uint256" },
+          { internalType: "uint256", name: "snapshotTimestamp",       type: "uint256" },
+          { internalType: "bool",    name: "exists",                  type: "bool"    },
+        ],
+        internalType: "struct ListingSnapshotStore.ListingSnapshot",
+        name: "snap",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "listingId", type: "uint256" }],
+    name: "getListingDiscount",
+    outputs: [
+      { internalType: "uint256", name: "discountBps", type: "uint256" },
+      { internalType: "bool",    name: "exists_",     type: "bool"    },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true,  internalType: "uint256", name: "listingId",     type: "uint256" },
+      { indexed: true,  internalType: "address", name: "collection",    type: "address" },
+      { indexed: true,  internalType: "uint256", name: "tokenId",       type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "intrinsicValue",type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "votingPower",   type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "lockDuration",  type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "lockEnd",       type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "discountBps",   type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "usdValue",      type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "timestamp",     type: "uint256" },
+    ],
+    name: "SnapshotRecorded",
+    type: "event",
+  },
+] as const;
+
+export const ERC721ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "to", type: "address" },
+      { internalType: "uint256", name: "tokenId", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+    name: "getApproved",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "operator", type: "address" },
+    ],
+    name: "isApprovedForAll",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "tokenId", type: "uint256" }],
+    name: "ownerOf",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "owner", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+] as const;

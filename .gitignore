@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build
+artifacts/
+cache/
+out/
+typechain-types/
+coverage/
+coverage.json
+
+
+# Environment
+# !.env.example  # Removed by Orchids to allow .env files
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deployment
+deployments/*.json
+
+# Frontend
+frontend/.next/
+frontend/out/
+# frontend/.env   # Removed by Orchids to allow .env files
+# frontend/.env.*   # Removed by Orchids to allow .env files
+# frontend/!.env.example   # Removed by Orchids to allow .env files
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+.nyc_output/
+# !.env.example  node_modules # Removed by Orchids to allow .env files
+.venv
