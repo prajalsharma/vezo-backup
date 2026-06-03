@@ -220,6 +220,26 @@ function CrossCurrencyNote({
 
   const discountUSD = ivUSD ? ((ivUSD - priceUSD) / ivUSD * 100) : null;
 
+  // Cross-currency breakdown — price expressed in every token
+  const tokenRates: Array<{ sym: string; perUnit: number | null; dec: number }> = [
+    { sym: "BTC",  perUnit: prices.BTC,  dec: 8 },
+    { sym: "MEZO", perUnit: prices.MEZO, dec: 4 },
+    { sym: "MUSD", perUnit: prices.MUSD, dec: 2 },
+  ];
+  const crossRows = tokenRates
+    .filter(({ sym, perUnit }) => sym !== paySymbol && perUnit !== null && perUnit > 0)
+    .map(({ sym, perUnit, dec }) => {
+      const amt  = (priceUSD / perUnit!).toFixed(dec);
+      const ivIn = ivUSD !== null ? ivUSD / perUnit! : null;
+      const amtN = priceUSD / perUnit!;
+      const disc = ivIn !== null && amtN < ivIn ? (((ivIn - amtN) / ivIn) * 100).toFixed(1) : null;
+      return { sym, amt, disc };
+    });
+  const bestIdx = crossRows.reduce(
+    (b, r, i) => r.disc !== null && (b === -1 || parseFloat(r.disc) > parseFloat(crossRows[b].disc ?? "0")) ? i : b,
+    -1
+  );
+
   return (
     <div
       className="p-4 rounded-xl space-y-2"
@@ -251,6 +271,37 @@ function CrossCurrencyNote({
           </>
         )}
       </div>
+
+      {/* Cross-currency breakdown */}
+      {crossRows.length > 0 && (
+        <div className="pt-2 mt-2 space-y-1.5" style={{ borderTop: "1px solid rgba(74,144,226,0.14)" }}>
+          <p className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
+            Equivalent in other currencies
+          </p>
+          {crossRows.map((row, i) => (
+            <div key={row.sym} className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold w-8" style={{ color: "var(--text-3)" }}>{row.sym}</span>
+                {i === bestIdx && (
+                  <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded" style={{ background: "rgba(16,185,129,0.15)", color: "#10B981" }}>
+                    best
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}>
+                  {row.amt}
+                </span>
+                {row.disc && (
+                  <span className="ml-1.5 text-[9.5px] font-bold" style={{ color: "#10B981" }}>
+                    {row.disc}% off IV
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
