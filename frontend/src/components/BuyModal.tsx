@@ -1,25 +1,13 @@
 "use client";
 
-/*
-  Taste-skill rules applied:
-  ✓ mezo-* tokens → CSS custom properties (var(--bg), var(--text-*), var(--border))
-  ✓ Liquid glass modal: backdrop-blur + inner border shadow
-  ✓ tabular-nums on all price values
-  ✓ Spring stiffness:100, damping:20
-  ✓ Animate only transform + opacity (GPU rule)
-  ✓ Vezo red (#FF0040) as the primary accent
-  ✓ Status steps use matching tinted colors
-*/
-
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { formatEther, maxUint256 } from "viem";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ArrowRight, ShieldCheck, Loader2, CheckCircle2, AlertCircle, Wallet, ArrowLeftRight, Info } from "lucide-react";
+import { X, ArrowRight, ShieldCheck, Loader2, CheckCircle2, AlertCircle, Wallet } from "lucide-react";
 import { useMarketplace, Listing } from "@/hooks/useMarketplace";
 import { useNetwork } from "@/hooks/useNetwork";
 import { useReadContract, useWaitForTransactionReceipt, useAccount, useBalance, useConfig } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
-import { usePriceTicker, formatUSD } from "@/hooks/usePriceTicker";
 
 // ─── ABIs ─────────────────────────────────────────────────────────────────────
 
@@ -63,7 +51,10 @@ const ERC721_ABI = [
   },
 ] as const;
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+// On Mezo, BTC at ...0000 is the native gas token — paid via msg.value.
+// MEZO at ...0001 and MUSD are standard ERC-20s — need approve + transferFrom.
 const BTC_ADDRESS = "0x7b7c000000000000000000000000000000000000";
 
 interface BuyModalProps {
@@ -75,39 +66,45 @@ interface BuyModalProps {
 
 type BuyStep = "confirm" | "approving" | "buying" | "done" | "error";
 
-// ─── Error parser ──────────────────────────────────────────────────────────────
+// ─── Error message parser ──────────────────────────────────────────────────────
+// Maps raw contract revert strings, custom error names, and wallet errors to
+// user-friendly messages.  Custom errors from VeNFTMarketplace and PaymentRouter
+// are decoded by wagmi when they appear in the ABI; their names show up in the
+// error message so we match on them here.
 function parseError(raw: string): string {
   const msg = raw.toLowerCase();
+  // Wallet / user rejection
   if (msg.includes("user rejected") || msg.includes("user denied") || msg.includes("rejected"))
     return "You rejected the transaction in your wallet.";
-  if (msg.includes("selfpurchase")) return "You cannot buy your own listing.";
+  // Contract custom errors (name appears in wagmi decoded message)
+  if (msg.includes("selfpurchase"))
+    return "You cannot buy your own listing.";
   if (msg.includes("listingnotactive"))
     return "This listing is no longer active — it may have been sold or cancelled.";
   if (msg.includes("expiredvenft"))
     return "This veNFT's lock has expired and cannot be traded.";
   if (msg.includes("notowner"))
     return "The seller no longer owns this NFT — the listing is stale.";
-  if (
-    msg.includes("notapproved") ||
-    msg.includes("not approved") ||
-    msg.includes("erc721insufficientapproval") ||
-    msg.includes("caller is not token owner or approved")
-  )
-    return "The seller has not approved the marketplace. The listing is stale — seller needs to re-list.";
-  if (msg.includes("insufficientpayment")) return "Insufficient payment sent. Please try again.";
+  if (msg.includes("notapproved") || msg.includes("not approved") || msg.includes("erc721insufficientapproval") || msg.includes("caller is not token owner or approved"))
+    return "The seller has not approved the marketplace to transfer this NFT. The listing is stale — the seller needs to re-list.";
+  if (msg.includes("insufficientpayment"))
+    return "Insufficient payment sent. Please try again.";
   if (msg.includes("invalidamount") || msg.includes("invalid amount"))
     return "Payment amount mismatch. Please try again.";
   if (msg.includes("transferfailed") || msg.includes("transfer failed"))
-    return "Token transfer failed. Check your allowance and balance.";
+    return "Token transfer failed. Check your MEZO/MUSD allowance and balance.";
   if (msg.includes("paused"))
     return "The marketplace is currently paused. Please try again later.";
-  if (msg.includes("unauthorized")) return "Unauthorized contract call. Please contact support.";
+  if (msg.includes("unauthorized"))
+    return "Unauthorized contract call. Please contact support.";
   if (msg.includes("unsupportedtoken"))
     return "This payment token is not supported by the marketplace.";
+  // ERC-20 allowance / balance failures (from SafeERC20 or ERC20InsufficientAllowance)
   if (msg.includes("allowance") || msg.includes("erc20insufficientallowance"))
     return "Insufficient token allowance. Please approve the router and try again.";
   if (msg.includes("erc20insufficientbalance") || msg.includes("insufficient balance"))
     return "Insufficient token balance to complete this purchase.";
+  // Generic fallbacks
   if (msg.includes("insufficient funds"))
     return "Your wallet doesn't have enough balance to pay for this NFT.";
   if (msg.includes("network") || msg.includes("rpc") || msg.includes("fetch"))
@@ -115,257 +112,51 @@ function parseError(raw: string): string {
   return raw.length > 200 ? raw.slice(0, 200) + "…" : raw;
 }
 
-// ─── Step pill ─────────────────────────────────────────────────────────────────
-function StepPill({
-  label,
-  state,
-}: {
-  label: string;
-  state: "idle" | "active" | "done";
-}) {
-  const colors = {
-    idle: { bg: "var(--bg-2)", border: "var(--border)", color: "var(--text-3)" },
-    active: { bg: "rgba(255,0,64,0.1)", border: "rgba(255,0,64,0.24)", color: "#FF0040" },
-    done: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.22)", color: "#10B981" },
-  }[state];
+// ─── Component ────────────────────────────────────────────────────────────────
 
-  return (
-    <div
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold"
-      style={{ background: colors.bg, border: `1px solid ${colors.border}`, color: colors.color }}
-    >
-      {state === "done" ? (
-        <CheckCircle2 style={{ width: 11, height: 11 }} />
-      ) : state === "active" ? (
-        <Loader2 style={{ width: 11, height: 11 }} className="animate-spin" />
-      ) : (
-        <span
-          className="w-3 h-3 rounded-full border flex items-center justify-center text-[8px] font-black"
-          style={{ borderColor: "currentColor" }}
-        >
-          {label.startsWith("1") ? "1" : "2"}
-        </span>
-      )}
-      {label}
-    </div>
-  );
-}
-
-// ─── Alert block ───────────────────────────────────────────────────────────────
-function AlertBlock({
-  icon: Icon,
-  title,
-  body,
-  variant,
-}: {
-  icon: any;
-  title: string;
-  body: string;
-  variant: "red" | "yellow" | "green" | "blue";
-}) {
-  const palette = {
-    red: { bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.2)", color: "#EF4444" },
-    yellow: { bg: "rgba(245,158,11,0.08)", border: "rgba(245,158,11,0.2)", color: "#F59E0B" },
-    green: { bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.2)", color: "#10B981" },
-    blue: { bg: "rgba(255,0,64,0.06)", border: "rgba(255,0,64,0.16)", color: "#FF0040" },
-  }[variant];
-
-  return (
-    <div
-      className="flex gap-3 p-4 rounded-xl"
-      style={{ background: palette.bg, border: `1px solid ${palette.border}` }}
-    >
-      <Icon style={{ width: 16, height: 16, color: palette.color, flexShrink: 0, marginTop: 1 }} />
-      <div>
-        <p className="text-xs font-semibold mb-0.5" style={{ color: palette.color }}>
-          {title}
-        </p>
-        <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>
-          {body}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Cross-currency context block ──────────────────────────────────────────────
-// When a buyer holds a different token than what the listing requires, show them
-// the USD-equivalent context and a note about using the swap router.
-function CrossCurrencyNote({
-  paySymbol,
-  intrinsicValue,
-  listingPrice,
-  prices,
-}: {
-  paySymbol: string;
-  intrinsicValue: bigint;
-  listingPrice: bigint;
-  prices: ReturnType<typeof usePriceTicker>;
-}) {
-  // Map symbol → USD price
-  const unitPrice: number | null =
-    paySymbol === "BTC"  ? prices.BTC  :
-    paySymbol === "MEZO" ? prices.MEZO :
-    paySymbol === "MUSD" ? prices.MUSD :
-    null;
-
-  const priceEth = parseFloat(formatEther(listingPrice));
-  const ivEth    = parseFloat(formatEther(intrinsicValue));
-
-  const priceUSD = unitPrice !== null ? unitPrice * priceEth : null;
-  const ivUSD    = unitPrice !== null ? unitPrice * ivEth    : null;
-
-  // Only show this block if we have USD data
-  if (!priceUSD) return null;
-
-  const discountUSD = ivUSD ? ((ivUSD - priceUSD) / ivUSD * 100) : null;
-
-  // Cross-currency breakdown — price expressed in every token
-  const tokenRates: Array<{ sym: string; perUnit: number | null; dec: number }> = [
-    { sym: "BTC",  perUnit: prices.BTC,  dec: 8 },
-    { sym: "MEZO", perUnit: prices.MEZO, dec: 4 },
-    { sym: "MUSD", perUnit: prices.MUSD, dec: 2 },
-  ];
-  const crossRows = tokenRates
-    .filter(({ sym, perUnit }) => sym !== paySymbol && perUnit !== null && perUnit > 0)
-    .map(({ sym, perUnit, dec }) => {
-      const amt  = (priceUSD / perUnit!).toFixed(dec);
-      const ivIn = ivUSD !== null ? ivUSD / perUnit! : null;
-      const amtN = priceUSD / perUnit!;
-      const disc = ivIn !== null && amtN < ivIn ? (((ivIn - amtN) / ivIn) * 100).toFixed(1) : null;
-      return { sym, amt, disc };
-    });
-  const bestIdx = crossRows.reduce(
-    (b, r, i) => r.disc !== null && (b === -1 || parseFloat(r.disc) > parseFloat(crossRows[b].disc ?? "0")) ? i : b,
-    -1
-  );
-
-  return (
-    <div
-      className="p-4 rounded-xl space-y-2"
-      style={{ background: "rgba(74,144,226,0.06)", border: "1px solid rgba(74,144,226,0.18)" }}
-    >
-      <div className="flex items-center gap-2 mb-1">
-        <Info style={{ width: 13, height: 13, color: "#4A90E2", flexShrink: 0 }} />
-        <p className="text-[11px] font-bold" style={{ color: "#4A90E2" }}>USD Context</p>
-      </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        <span className="text-[10px]" style={{ color: "var(--text-3)" }}>You pay</span>
-        <span className="text-[10px] font-bold tabular-nums text-right" style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}>
-          {formatUSD(priceUSD)}
-        </span>
-        {ivUSD !== null && (
-          <>
-            <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Intrinsic value</span>
-            <span className="text-[10px] font-bold tabular-nums text-right" style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}>
-              {formatUSD(ivUSD)}
-            </span>
-          </>
-        )}
-        {discountUSD !== null && discountUSD > 0 && (
-          <>
-            <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Implied discount</span>
-            <span className="text-[10px] font-bold tabular-nums text-right" style={{ color: "#10B981", fontVariantNumeric: "tabular-nums" }}>
-              {discountUSD.toFixed(1)}% off
-            </span>
-          </>
-        )}
-      </div>
-
-      {/* Cross-currency breakdown */}
-      {crossRows.length > 0 && (
-        <div className="pt-2 mt-2 space-y-1.5" style={{ borderTop: "1px solid rgba(74,144,226,0.14)" }}>
-          <p className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-            Equivalent in other currencies
-          </p>
-          {crossRows.map((row, i) => (
-            <div key={row.sym} className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold w-8" style={{ color: "var(--text-3)" }}>{row.sym}</span>
-                {i === bestIdx && (
-                  <span className="text-[8px] font-black uppercase px-1 py-0.5 rounded" style={{ background: "rgba(16,185,129,0.15)", color: "#10B981" }}>
-                    best
-                  </span>
-                )}
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] font-bold tabular-nums" style={{ color: "var(--text-1)", fontVariantNumeric: "tabular-nums" }}>
-                  {row.amt}
-                </span>
-                {row.disc && (
-                  <span className="ml-1.5 text-[9.5px] font-bold" style={{ color: "#10B981" }}>
-                    {row.disc}% off IV
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Swap info block ─────────────────────────────────────────────────────────
-// Informs buyer they can use any token — the on-chain swap router handles it.
-function SwapNote({ paySymbol }: { paySymbol: string }) {
-  const otherTokens = ["BTC", "MEZO", "MUSD"].filter((t) => t !== paySymbol);
-  return (
-    <div
-      className="p-4 rounded-xl"
-      style={{ background: "rgba(255,0,64,0.05)", border: "1px solid rgba(255,0,64,0.14)" }}
-    >
-      <div className="flex items-start gap-2.5">
-        <ArrowLeftRight style={{ width: 13, height: 13, color: "#FF0040", flexShrink: 0, marginTop: 1 }} />
-        <div>
-          <p className="text-[11px] font-bold mb-0.5" style={{ color: "#FF0040" }}>
-            Don&apos;t have {paySymbol}?
-          </p>
-          <p className="text-[10px] leading-relaxed" style={{ color: "var(--text-3)" }}>
-            The on-chain swap router lets you pay with{" "}
-            <span style={{ color: "var(--text-2)", fontWeight: 600 }}>
-              {otherTokens.join(" or ")}
-            </span>{" "}
-            — it swaps automatically and clips a small routing fee. A{" "}
-            <span style={{ color: "var(--text-2)", fontWeight: 600 }}>1.5% swap fee</span> is added
-            on top of the listed price when using a different currency.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Component ─────────────────────────────────────────────────────────────────
 export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps) {
   const { contracts } = useNetwork();
   const { address: buyerAddress } = useAccount();
   const wagmiConfig = useConfig();
-  const { buyListing, approveTokenForBuy, executeBuy, isPending, isConfirming } = useMarketplace();
-  const prices = usePriceTicker();
+  const {
+    buyListing,
+    approveTokenForBuy,
+    executeBuy,
+    isPending,
+    isConfirming,
+  } = useMarketplace();
 
+  // Waits for an approval tx to mine before proceeding to the buy step.
   const waitForApproval = (hash: `0x${string}`) =>
     waitForTransactionReceipt(wagmiConfig, { hash });
 
   const [step, setStep] = useState<BuyStep>("confirm");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // sessionHash: set directly from writeContractAsync's resolved value — no
+  // effects, no race between step state and hash arrival.
   const [sessionHash, setSessionHash] = useState<`0x${string}` | undefined>(undefined);
   const [phase, setPhase] = useState<"approve" | "buy">("approve");
 
   const { isSuccess: txConfirmed, isError: txFailed, error: txError } =
     useWaitForTransactionReceipt({ hash: sessionHash });
 
+  // BTC is the only native (msg.value) payment token on Mezo.
+  // MEZO (...0001) and MUSD are ERC-20s and require approve + transferFrom.
   const paymentLower = listing?.paymentToken.toLowerCase() ?? "";
   const isNative = paymentLower === BTC_ADDRESS.toLowerCase();
+
   const routerAddress = contracts.router as `0x${string}`;
   const isRouterReady =
-    !!routerAddress && routerAddress !== "0x0000000000000000000000000000000000000000";
+    !!routerAddress &&
+    routerAddress !== "0x0000000000000000000000000000000000000000";
 
+  // ── Native BTC balance ────────────────────────────────────────────────────
   const { data: nativeBalance } = useBalance({
     address: buyerAddress,
     query: { enabled: isNative && !!buyerAddress },
   });
 
+  // ── ERC-20 balance (MEZO / MUSD) ─────────────────────────────────────────
   const { data: erc20Balance } = useReadContract({
     address: listing?.paymentToken as `0x${string}`,
     abi: ERC20_ABI,
@@ -374,6 +165,7 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
     query: { enabled: !isNative && !!listing && !!buyerAddress },
   });
 
+  // ── NFT approval checks — detects stale listings where seller lost approval ──
   const { data: nftApproved } = useReadContract({
     address: listing?.nftContract as `0x${string}`,
     abi: ERC721_ABI,
@@ -388,22 +180,29 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
     functionName: "isApprovedForAll",
     args:
       listing?.seller && listing?.nftContract
-        ? [listing.seller as `0x${string}`, contracts.marketplace as `0x${string}`]
+        ? [listing.seller as `0x${string}`, (contracts.marketplace as `0x${string}`)]
         : undefined,
     query: { enabled: !!listing },
   });
 
   const isNftApproved =
     listing == null ||
-    (nftApproved as string | undefined)?.toLowerCase() === contracts.marketplace.toLowerCase() ||
+    (nftApproved as string | undefined)?.toLowerCase() ===
+      contracts.marketplace.toLowerCase() ||
     nftApprovedForAll === true;
 
+  // ── ERC-20 allowance (skip for native BTC) ────────────────────────────────
   const { data: currentAllowance } = useReadContract({
     address: listing?.paymentToken as `0x${string}`,
     abi: ERC20_ABI,
     functionName: "allowance",
-    args: buyerAddress && routerAddress ? [buyerAddress, routerAddress] : undefined,
-    query: { enabled: !isNative && !!listing && !!buyerAddress && isRouterReady },
+    args:
+      buyerAddress && routerAddress
+        ? [buyerAddress, routerAddress]
+        : undefined,
+    query: {
+      enabled: !isNative && !!listing && !!buyerAddress && isRouterReady,
+    },
   });
 
   const alreadyApproved =
@@ -412,45 +211,51 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
     currentAllowance != null &&
     (currentAllowance as bigint) >= listing.price;
 
+  // ── Balance check ─────────────────────────────────────────────────────────
   const hasEnoughBalance = (() => {
-    if (!listing) return true;
+    if (!listing) return true; // don't block before listing loads
     if (isNative) {
-      if (!nativeBalance) return true;
+      if (!nativeBalance) return true; // still loading — don't block
       return nativeBalance.value >= listing.price;
     } else {
-      if (!erc20Balance) return true;
+      if (!erc20Balance) return true; // still loading — don't block
       return (erc20Balance as bigint) >= listing.price;
     }
   })();
 
+  // Resolve payment symbol network-aware so MUSD vs MEZO vs BTC is always correct.
   const paymentSymbol = listing
     ? (() => {
         const lower = listing.paymentToken.toLowerCase();
         if (lower === "0x7b7c000000000000000000000000000000000000") return "BTC";
         if (lower === "0x7b7c000000000000000000000000000000000001") return "MEZO";
+        // Any other address is treated as MUSD (the only other supported payment token)
         return "MUSD";
       })()
     : "";
-
   const formattedPrice = listing
     ? parseFloat(formatEther(listing.price)).toFixed(6)
     : "0";
 
+  // ── On-chain confirmation or revert ──────────────────────────────────────
   useEffect(() => {
     if (txConfirmed && step === "buying") {
       setStep("done");
+      // Notify parent so it can immediately remove the stale listing from the UI
       if (listing) onSuccess?.(listing);
     }
   }, [txConfirmed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (txFailed && (step === "approving" || step === "buying")) {
+      console.error("[BuyModal] tx failed:", txError);
       const msg = txError?.message ?? "Transaction reverted on-chain.";
       setErrorMsg(parseError(msg));
       setStep("error");
     }
   }, [txFailed]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset when modal opens
   useEffect(() => {
     if (isOpen) {
       setStep("confirm");
@@ -473,37 +278,48 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
     setErrorMsg(null);
 
     if (!hasEnoughBalance) {
-      setErrorMsg(`Insufficient ${paymentSymbol} balance. You need ${formattedPrice} ${paymentSymbol}.`);
+      setErrorMsg(
+        `Insufficient ${paymentSymbol} balance. You need ${formattedPrice} ${paymentSymbol} to buy this listing.`
+      );
       setStep("error");
       return;
     }
 
     if (!isNftApproved) {
-      setErrorMsg("The seller has not approved the marketplace. Listing is stale — seller needs to re-approve or re-list.");
+      setErrorMsg(
+        "The seller has not approved the marketplace to transfer this NFT. The listing is stale — the seller needs to re-approve or re-list."
+      );
       setStep("error");
       return;
     }
 
     try {
       if (isNative) {
+        // ── Native BTC: single tx ────────────────────────────────────────────
         setPhase("buy");
         setStep("buying");
         const h = await buyListing(listing.listingId, listing.price, true);
         setSessionHash(h);
       } else if (alreadyApproved) {
+        // ── ERC-20, already approved: single tx ─────────────────────────────
         setPhase("buy");
         setStep("buying");
         const h = await executeBuy(listing.listingId);
         setSessionHash(h);
       } else {
+        // ── ERC-20: approve first, then buy ──────────────────────────────────
+        // Approve MaxUint256 so the router can pull sellerAmount + fee in two
+        // separate transferFrom calls without running out of allowance.
         setPhase("approve");
         setStep("approving");
         const approveHash = await approveTokenForBuy(listing.paymentToken, maxUint256);
         setSessionHash(approveHash);
+        // Wait for approval to mine
         await waitForApproval(approveHash);
+        // Now execute the buy
         setPhase("buy");
         setStep("buying");
-        setSessionHash(undefined);
+        setSessionHash(undefined); // clear while new hash arrives
         const buyHash = await executeBuy(listing.listingId);
         setSessionHash(buyHash);
       }
@@ -515,54 +331,32 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
 
   if (!listing) return null;
 
-  const isBusy = step === "approving" || step === "buying";
-
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(12px) saturate(180%)" }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={step === "done" || step === "confirm" || step === "error" ? handleClose : undefined}
           />
 
-          {/* Panel */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 20 }}
-            transition={{ type: "spring", stiffness: 240, damping: 26 }}
-            className="relative w-full max-w-md overflow-hidden rounded-2xl"
-            style={{
-              background: "var(--bg-1)",
-              border: "1px solid var(--border)",
-              boxShadow: "var(--shadow-xl)",
-            }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-md bg-mezo-background border border-mezo-border rounded-[2.5rem] overflow-hidden shadow-2xl"
           >
-            {/* Top accent bar */}
-            <div style={{ height: 2, background: "linear-gradient(90deg, #FF0040, #FF004044)" }} />
-
             {/* Header */}
-            <div
-              className="flex items-start justify-between px-6 pt-5 pb-4"
-              style={{ borderBottom: "1px solid var(--border-subtle)" }}
-            >
+            <div className="p-8 border-b border-mezo-border flex justify-between items-center">
               <div>
-                <h2 className="text-base font-semibold" style={{ letterSpacing: "-0.02em" }}>
+                <h2 className="text-2xl font-bold">
                   Buy {listing.collection}{" "}
-                  <span
-                    className="tabular-nums"
-                    style={{ fontVariantNumeric: "tabular-nums", color: "#FF0040" }}
-                  >
-                    #{listing.tokenId.toString()}
-                  </span>
+                  <span className="text-mezo-primary">#{listing.tokenId.toString()}</span>
                 </h2>
-                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
+                <p className="text-mezo-muted text-sm mt-1">
                   {isNative
                     ? "Single transaction — pay and receive NFT atomically."
                     : alreadyApproved
@@ -572,213 +366,162 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
               </div>
               <button
                 onClick={handleClose}
-                className="p-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0040]"
-                style={{ color: "var(--text-3)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
+                className="p-2 hover:bg-white/5 rounded-xl transition-colors"
               >
-                <X style={{ width: 17, height: 17 }} />
+                <X className="w-6 h-6 text-mezo-muted" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-8 space-y-5">
               {/* Price summary */}
-              <div
-                className="p-4 rounded-xl space-y-2.5"
-                style={{ background: "var(--bg-2)", border: "1px solid var(--border-subtle)" }}
-              >
-                {[
-                  {
-                    label: "You pay",
-                    value: (
-                      <span
-                        className="tabular-nums font-bold"
-                        style={{ fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {formattedPrice}{" "}
-                        <span className="text-[10px] font-semibold" style={{ color: "var(--text-3)" }}>
-                          {paymentSymbol}
-                        </span>
-                      </span>
-                    ),
-                    color: "var(--text-1)",
-                  },
-                  {
-                    label: "Discount",
-                    value: (
-                      <span
-                        className="tabular-nums font-bold"
-                        style={{ fontVariantNumeric: "tabular-nums", color: "#10B981" }}
-                      >
-                        {listing.discountBps === null
-                          ? "—"
-                          : `${(Number(listing.discountBps) / 100).toFixed(1)}%`}
-                      </span>
-                    ),
-                    color: "#10B981",
-                  },
-                  {
-                    label: "Protocol fee",
-                    value: <span className="tabular-nums font-semibold" style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-3)" }}>1%</span>,
-                    color: "var(--text-3)",
-                  },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between items-center text-xs">
-                    <span style={{ color: "var(--text-3)" }}>{label}</span>
-                    {value}
-                  </div>
-                ))}
+              <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-mezo-muted">You pay</span>
+                  <span className="font-bold text-white">
+                    {formattedPrice} {paymentSymbol}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-mezo-muted">Discount</span>
+                  <span className="font-bold text-mezo-success">
+                    {listing.discountBps === null
+                      ? "—"
+                      : `${(Number(listing.discountBps) / 100).toFixed(1)}%`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-mezo-muted">Protocol fee</span>
+                  <span className="font-bold text-mezo-muted">1%</span>
+                </div>
               </div>
 
-              {/* USD context + swap note */}
-              {listing && step === "confirm" && (
-                <>
-                  <CrossCurrencyNote
-                    paySymbol={paymentSymbol}
-                    intrinsicValue={listing.intrinsicValue}
-                    listingPrice={listing.price}
-                    prices={prices}
-                  />
-                  <SwapNote paySymbol={paymentSymbol} />
-                </>
+              {/* Stale approval warning */}
+              {!isNftApproved && step === "confirm" && (
+                <div className="flex gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-red-400">Listing no longer valid</p>
+                    <p className="text-xs text-mezo-muted mt-0.5">
+                      The seller's NFT approval for the marketplace has been revoked. This purchase will fail until the seller re-approves or re-lists.
+                    </p>
+                  </div>
+                </div>
               )}
 
-              {/* Warnings */}
-              <AnimatePresence>
-                {!isNftApproved && step === "confirm" && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <AlertBlock
-                      icon={AlertCircle}
-                      variant="red"
-                      title="Listing no longer valid"
-                      body="The seller's NFT approval has been revoked. This purchase will fail until the seller re-approves or re-lists."
-                    />
-                  </motion.div>
-                )}
+              {/* Balance warning */}
+              {!hasEnoughBalance && step === "confirm" && (
+                <div className="flex gap-3 p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20">
+                  <Wallet className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-yellow-400">Insufficient balance</p>
+                    <p className="text-xs text-mezo-muted mt-0.5">
+                      You need {formattedPrice} {paymentSymbol}. Add funds to your wallet before buying.
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                {!hasEnoughBalance && step === "confirm" && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.25 }}
-                  >
-                    <AlertBlock
-                      icon={Wallet}
-                      variant="yellow"
-                      title="Insufficient balance"
-                      body={`You need ${formattedPrice} ${paymentSymbol}. Add funds to your wallet before buying.`}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Step indicators for 2-step ERC-20 flow */}
+              {/* Step indicators for ERC-20 (only when there's more than one step) */}
               {!isNative && !alreadyApproved && (
-                <div className="flex items-center gap-2">
-                  <StepPill
-                    label={`Approve ${paymentSymbol}`}
-                    state={
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full ${
                       step === "approving"
-                        ? "active"
+                        ? "bg-mezo-primary/20 text-mezo-primary"
                         : step === "buying" || step === "done"
-                        ? "done"
-                        : "idle"
-                    }
-                  />
-                  <div className="flex-1 h-px" style={{ background: "var(--border)" }} />
-                  <StepPill
-                    label="Purchase NFT"
-                    state={
-                      step === "buying" ? "active" : step === "done" ? "done" : "idle"
-                    }
-                  />
+                        ? "bg-mezo-success/20 text-mezo-success"
+                        : "bg-white/5 text-mezo-muted"
+                    }`}
+                  >
+                    {(step === "buying" || step === "done") ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : step === "approving" ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <span className="w-3 h-3 rounded-full border border-current flex items-center justify-center text-[8px]">1</span>
+                    )}
+                    Approve {paymentSymbol}
+                  </div>
+                  <div className="h-px flex-1 bg-mezo-border" />
+                  <div
+                    className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full ${
+                      step === "buying"
+                        ? "bg-mezo-primary/20 text-mezo-primary"
+                        : step === "done"
+                        ? "bg-mezo-success/20 text-mezo-success"
+                        : "bg-white/5 text-mezo-muted"
+                    }`}
+                  >
+                    {step === "done" ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : step === "buying" ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <span className="w-3 h-3 rounded-full border border-current flex items-center justify-center text-[8px]">2</span>
+                    )}
+                    Purchase NFT
+                  </div>
                 </div>
               )}
 
               {/* Security note */}
-              <AlertBlock
-                icon={ShieldCheck}
-                variant="blue"
-                title="Atomic settlement"
-                body="NFT transfers to you before payment is routed. If the seller moves the NFT first, the transaction reverts automatically."
-              />
+              <div className="flex gap-3 p-4 rounded-2xl bg-mezo-primary/5 border border-mezo-primary/20">
+                <ShieldCheck className="w-5 h-5 text-mezo-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-mezo-muted leading-relaxed">
+                  NFT transfers to you before payment is routed. If the seller
+                  moves the NFT before you buy, the transaction reverts automatically.
+                </p>
+              </div>
 
               {/* Error */}
-              <AnimatePresence>
-                {step === "error" && errorMsg && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <AlertBlock
-                      icon={AlertCircle}
-                      variant="red"
-                      title="Transaction failed"
-                      body={errorMsg}
-                    />
-                  </motion.div>
-                )}
+              {step === "error" && errorMsg && (
+                <div className="flex gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
+                  <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-400 leading-relaxed">{errorMsg}</p>
+                </div>
+              )}
 
-                {step === "done" && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <AlertBlock
-                      icon={CheckCircle2}
-                      variant="green"
-                      title="Purchase complete!"
-                      body={`${listing.collection} #${listing.tokenId.toString()} is now in your wallet.`}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Success */}
+              {step === "done" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex gap-3 p-4 rounded-2xl bg-mezo-success/10 border border-mezo-success/20"
+                >
+                  <CheckCircle2 className="w-5 h-5 text-mezo-success shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-mezo-success">Purchase complete!</p>
+                    <p className="text-xs text-mezo-muted mt-0.5">
+                      {listing.collection} #{listing.tokenId.toString()} is now in your wallet.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
 
-              {/* CTA */}
+              {/* Action button */}
               {step === "done" ? (
-                <motion.button
+                <button
                   onClick={handleClose}
-                  whileTap={{ y: 1, scale: 0.985 }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                  className="w-full btn-primary py-3.5 rounded-xl font-bold"
+                  className="w-full btn-primary py-4 rounded-2xl font-bold"
                 >
                   Close
-                </motion.button>
+                </button>
               ) : step === "error" ? (
-                <motion.button
+                <button
                   onClick={() => { setStep("confirm"); setPhase("approve"); setErrorMsg(null); }}
-                  whileTap={{ y: 1, scale: 0.985 }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                  className="w-full py-3.5 rounded-xl font-bold transition-colors"
-                  style={{
-                    background: "var(--bg-2)",
-                    border: "1px solid var(--border)",
-                    color: "var(--text-1)",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-3)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--bg-2)")}
+                  className="w-full py-4 rounded-2xl font-bold bg-white/5 hover:bg-white/10 transition-all"
                 >
                   Try Again
-                </motion.button>
+                </button>
               ) : (
-                <motion.button
+                <button
                   onClick={handleBuy}
-                  disabled={isBusy || !hasEnoughBalance || !isNftApproved}
-                  whileTap={{ y: 1, scale: 0.985 }}
-                  transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                  className="w-full btn-primary py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed group"
+                  disabled={step !== "confirm" || !hasEnoughBalance || !isNftApproved}
+                  className="w-full btn-primary py-4 rounded-2xl flex items-center justify-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
-                  {isBusy ? (
+                  {step === "approving" || step === "buying" ? (
                     <>
-                      <Loader2 style={{ width: 16, height: 16 }} className="animate-spin" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       {isPending
                         ? "Check wallet…"
                         : isConfirming
@@ -789,19 +532,18 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
                     </>
                   ) : !hasEnoughBalance ? (
                     <>
-                      <Wallet style={{ width: 16, height: 16 }} />
+                      <Wallet className="w-5 h-5" />
                       Insufficient {paymentSymbol}
                     </>
                   ) : (
                     <>
-                      {isNative || alreadyApproved ? "Buy Now" : `1. Approve ${paymentSymbol}`}
-                      <ArrowRight
-                        style={{ width: 15, height: 15 }}
-                        className="group-hover:translate-x-1 transition-transform"
-                      />
+                      {isNative || alreadyApproved
+                        ? "Buy Now"
+                        : `1. Approve ${paymentSymbol}`}
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
-                </motion.button>
+                </button>
               )}
             </div>
           </motion.div>

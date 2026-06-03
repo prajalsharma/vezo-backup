@@ -1,26 +1,19 @@
 "use client";
 
-/*
-  Taste-skill rules applied:
-  ✓ mezo-* tokens → CSS custom properties
-  ✓ Liquid glass modal: backdrop-blur + inner border shadow
-  ✓ tabular-nums on all numeric values
-  ✓ Spring stiffness:100, damping:20
-  ✓ Vezo red (#FF0040) accent on active payment token selector
-  ✓ Price input uses var(--bg-2) surface, var(--border) ring
-  ✓ Animate only transform + opacity (GPU rule)
-*/
-
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useWaitForTransactionReceipt } from "wagmi";
 import { formatEther, parseEther } from "viem";
 import {
   X,
+  ChevronRight,
+  Info,
+  Coins,
   ShieldCheck,
+  AlertTriangle,
+  Zap,
+  Clock,
   ArrowRight,
-  GitMerge,
-  AlertCircle,
-  CheckCircle2,
+  GitMerge
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMarketplace } from "@/hooks/useMarketplace";
@@ -36,6 +29,7 @@ interface ListingModalProps {
     intrinsicValue: bigint;
     votingPower: bigint;
     lockEnd: bigint;
+    /** True when this veNFT was distributed as a grant — cannot be merged or split. */
     isGrant?: boolean;
   } | null;
 }
@@ -49,10 +43,12 @@ export function ListingModal({ isOpen, onClose, veNFT }: ListingModalProps) {
   const [price, setPrice] = useState("");
   const [paymentToken, setPaymentToken] = useState<"BTC" | "MEZO" | "MUSD">(PAYMENT_TOKENS[0].symbol);
   const [txError, setTxError] = useState<string | null>(null);
+  // "approve" → waiting for NFT approval tx, "list" → ready to submit listing tx
   const [step, setStep] = useState<"approve" | "list">("approve");
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
   const [approvalHandled, setApprovalHandled] = useState(false);
 
+  // Track approval confirmation only for the approval tx in this modal session.
   const { isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({ hash: approvalHash });
 
   useEffect(() => {
@@ -62,6 +58,7 @@ export function ListingModal({ isOpen, onClose, veNFT }: ListingModalProps) {
     }
   }, [approvalConfirmed, step, approvalHandled]);
 
+  // Reset modal-local transaction state every time modal opens/closes.
   useEffect(() => {
     setStep("approve");
     setPrice("");
@@ -71,20 +68,24 @@ export function ListingModal({ isOpen, onClose, veNFT }: ListingModalProps) {
     setTxError(null);
   }, [isOpen]);
 
+  // approvalHash is now set directly in handleList from the returned tx hash —
+  // no need to derive it from the shared `hash` state of the write hook.
+
   if (!veNFT) return null;
 
   const nftContract = veNFT.collection === "veBTC" ? contracts.veBTC : contracts.veMEZO;
-  const paymentTokenAddr =
-    paymentToken === "BTC"
-      ? contracts.BTC
-      : paymentToken === "MEZO"
-      ? contracts.MEZO
-      : contracts.MUSD;
+  const paymentTokenAddr = paymentToken === "BTC"
+    ? contracts.BTC
+    : paymentToken === "MEZO"
+    ? contracts.MEZO
+    : contracts.MUSD;
 
   const handleList = async () => {
     setTxError(null);
     try {
       if (step === "approve") {
+        // Approve the marketplace to transfer this specific NFT.
+        // Capture the hash directly so the useEffect below can track confirmation.
         const txHash = await approveNFT(nftContract, veNFT.tokenId);
         if (txHash) {
           setApprovalHash(txHash);
@@ -94,151 +95,89 @@ export function ListingModal({ isOpen, onClose, veNFT }: ListingModalProps) {
         await createListing(nftContract, veNFT.tokenId, parseEther(price), paymentTokenAddr);
       }
     } catch (error: any) {
+      console.error("Listing failed:", error);
       const msg: string =
-        error?.shortMessage ?? error?.message ?? "Transaction failed. Check wallet and try again.";
+        error?.shortMessage ??
+        error?.message ??
+        "Transaction failed. Check wallet and try again.";
       setTxError(msg);
     }
   };
 
   const formattedIntrinsic = parseFloat(formatEther(veNFT.intrinsicValue)).toFixed(4);
-  const discount = price ? (1 - parseFloat(price) / parseFloat(formattedIntrinsic)) * 100 : 0;
-  const accentColor = veNFT.collection === "veBTC" ? "#F7931A" : "#4A90E2";
+  const discount = price ? (1 - (parseFloat(price) / parseFloat(formattedIntrinsic))) * 100 : 0;
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0"
-            style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(12px) saturate(180%)" }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={onClose}
           />
-
-          {/* Panel */}
+          
           <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 20 }}
-            transition={{ type: "spring", stiffness: 240, damping: 26 }}
-            className="relative w-full max-w-lg overflow-hidden rounded-2xl"
-            style={{
-              background: "var(--bg-1)",
-              border: "1px solid var(--border)",
-              boxShadow: "var(--shadow-xl)",
-            }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-lg bg-mezo-background border border-mezo-border rounded-[2.5rem] overflow-hidden shadow-2xl"
           >
-            {/* Top accent bar — collection color */}
-            <div style={{ height: 2, background: `linear-gradient(90deg, ${accentColor}, ${accentColor}44)` }} />
-
             {/* Header */}
-            <div
-              className="flex items-start justify-between px-6 pt-5 pb-4"
-              style={{ borderBottom: "1px solid var(--border-subtle)" }}
-            >
+            <div className="p-8 border-b border-mezo-border flex justify-between items-center">
               <div>
-                <h2 className="text-base font-semibold" style={{ letterSpacing: "-0.02em" }}>
-                  List {veNFT.collection}{" "}
-                  <span
-                    className="tabular-nums"
-                    style={{ fontVariantNumeric: "tabular-nums", color: accentColor }}
-                  >
-                    #{veNFT.tokenId.toString()}
-                  </span>
-                </h2>
-                <p className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>
-                  Configure your secondary market listing.
-                </p>
+                <h2 className="text-2xl font-bold">List {veNFT.collection} <span className="text-mezo-primary">#{veNFT.tokenId.toString()}</span></h2>
+                <p className="text-mezo-muted text-sm mt-1">Configure your secondary market listing.</p>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0040]"
-                style={{ color: "var(--text-3)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-              >
-                <X style={{ width: 17, height: 17 }} />
+              <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                <X className="w-6 h-6 text-mezo-muted" />
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
-              {/* Stats grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    label: "Intrinsic Value",
-                    value: `${formattedIntrinsic} ${veNFT.collection === "veBTC" ? "BTC" : "MEZO"}`,
-                  },
-                  {
-                    label: "Voting Power",
-                    value: parseFloat(formatEther(veNFT.votingPower)).toFixed(2),
-                  },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="p-4 rounded-xl"
-                    style={{ background: "var(--bg-2)", border: "1px solid var(--border-subtle)" }}
-                  >
-                    <p className="eyebrow mb-1">{stat.label}</p>
-                    <p
-                      className="text-sm font-bold tabular-nums"
-                      style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "-0.02em" }}
-                    >
-                      {stat.value}
-                    </p>
-                  </div>
-                ))}
+            <div className="p-8 space-y-8">
+              {/* Token Info Summary */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <p className="text-[10px] text-mezo-muted font-bold uppercase tracking-widest mb-1">Intrinsic Value</p>
+                  <p className="text-lg font-bold">{formattedIntrinsic} {veNFT.collection === 'veBTC' ? 'BTC' : 'MEZO'}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <p className="text-[10px] text-mezo-muted font-bold uppercase tracking-widest mb-1">Voting Power</p>
+                  <p className="text-lg font-bold">{parseFloat(formatEther(veNFT.votingPower)).toFixed(2)}</p>
+                </div>
               </div>
 
-              {/* Price input */}
-              <div className="space-y-2">
+              {/* Input Section */}
+              <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                  <label className="eyebrow">Set Asking Price</label>
+                  <label className="text-sm font-bold text-mezo-muted uppercase tracking-widest">Set Asking Price</label>
                   {price && discount > 0 && (
-                    <span
-                      className="text-[10px] font-bold tabular-nums"
-                      style={{ color: "#10B981", fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {discount.toFixed(1)}% discount vs spot
+                    <span className="text-xs font-bold text-mezo-success">
+                      {discount.toFixed(1)}% Discount vs Spot
                     </span>
                   )}
                 </div>
-
-                <div
-                  className="relative rounded-xl overflow-hidden"
-                  style={{
-                    background: "var(--bg-2)",
-                    border: "1px solid var(--border)",
-                    boxShadow: "var(--shadow-xs)",
-                  }}
-                >
+                
+                <div className="relative group">
                   <input
                     type="number"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full bg-transparent p-4 pr-36 text-xl font-bold focus:outline-none"
-                    style={{ color: "var(--text-1)" }}
+                    className="w-full bg-mezo-card/50 border border-mezo-border rounded-2xl p-4 text-2xl font-bold focus:outline-none focus:border-mezo-primary/50 transition-all pl-6 pr-32"
                   />
-                  <div className="absolute right-2 top-2 bottom-2 flex gap-1 items-center">
+                  <div className="absolute right-2 top-2 bottom-2 flex gap-1">
                     {PAYMENT_TOKENS.map((token) => (
                       <button
                         key={token.symbol}
                         onClick={() => setPaymentToken(token.symbol)}
-                        className="px-3 py-1.5 rounded-lg text-[10px] font-black transition-all"
-                        style={{
-                          background:
-                            paymentToken === token.symbol ? "#FF0040" : "var(--bg-3)",
-                          color:
-                            paymentToken === token.symbol ? "#fff" : "var(--text-3)",
-                          border:
-                            paymentToken === token.symbol
-                              ? "1px solid #FF004088"
-                              : "1px solid var(--border)",
-                        }}
+                        className={`px-3 rounded-xl text-xs font-black transition-all ${
+                          paymentToken === token.symbol 
+                            ? "bg-mezo-primary text-black shadow-lg" 
+                            : "text-mezo-muted hover:text-white hover:bg-white/5"
+                        }`}
                       >
                         {token.symbol}
                       </button>
@@ -247,128 +186,77 @@ export function ListingModal({ isOpen, onClose, veNFT }: ListingModalProps) {
                 </div>
               </div>
 
-              {/* Grant NFT notice */}
+              {/* Grant NFT notice — only rendered for grant-distributed veNFTs */}
               {isGrant && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex gap-3 p-4 rounded-xl"
-                  style={{
-                    background: "rgba(245,158,11,0.07)",
-                    border: "1px solid rgba(245,158,11,0.22)",
-                  }}
-                >
-                  <GitMerge style={{ width: 14, height: 14, color: "#F59E0B", flexShrink: 0, marginTop: 1 }} />
-                  <div>
-                    <p className="text-xs font-semibold mb-0.5" style={{ color: "#F59E0B" }}>
-                      Grant NFT — Cannot be Merged or Split
-                    </p>
-                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>
+                <div className="p-4 rounded-2xl bg-amber-500/8 border border-amber-500/30 flex gap-3 items-start">
+                  <div className="p-1.5 bg-amber-500/15 rounded-lg shrink-0">
+                    <GitMerge className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-amber-400">Grant NFT — Cannot be Merged or Split</p>
+                    <p className="text-xs text-mezo-muted leading-relaxed">
                       This position was distributed as a grant. It can be listed and sold normally, but merge and split operations are disabled on-chain.
                     </p>
                   </div>
-                </motion.div>
+                </div>
               )}
 
-              {/* Security note */}
-              <div
-                className="flex gap-3 p-4 rounded-xl"
-                style={{
-                  background: "rgba(255,0,64,0.05)",
-                  border: "1px solid rgba(255,0,64,0.14)",
-                }}
-              >
-                <ShieldCheck style={{ width: 15, height: 15, color: "#FF0040", flexShrink: 0, marginTop: 1 }} />
-                <div>
-                  <p className="text-xs font-semibold mb-0.5" style={{ letterSpacing: "-0.01em" }}>
-                    Escrowless Listing
-                  </p>
-                  <p className="text-[11px] leading-relaxed" style={{ color: "var(--text-3)" }}>
+              {/* Safety Info */}
+              <div className="p-4 rounded-2xl bg-mezo-primary/5 border border-mezo-primary/20 flex gap-4">
+                <div className="p-2 bg-mezo-primary/10 rounded-lg h-fit">
+                  <ShieldCheck className="w-5 h-5 text-mezo-primary" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold">Escrowless Listing</p>
+                  <p className="text-xs text-mezo-muted leading-relaxed">
                     The NFT stays in your wallet. You keep earning rewards and voting power until the moment it is sold.
                   </p>
                 </div>
               </div>
 
-              {/* Step indicator */}
-              {step === "list" && (
-                <div
-                  className="flex items-center gap-2 py-2 px-3 rounded-xl"
-                  style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.18)" }}
-                >
-                  <CheckCircle2 style={{ width: 13, height: 13, color: "#10B981" }} />
-                  <span className="text-[11px] font-semibold" style={{ color: "#10B981" }}>
-                    Marketplace approved — ready to list
-                  </span>
-                </div>
-              )}
-
-              {/* Error */}
-              <AnimatePresence>
-                {txError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex gap-3 p-4 rounded-xl"
-                    style={{
-                      background: "rgba(239,68,68,0.08)",
-                      border: "1px solid rgba(239,68,68,0.2)",
-                    }}
-                  >
-                    <AlertCircle style={{ width: 14, height: 14, color: "#EF4444", flexShrink: 0, marginTop: 1 }} />
-                    <p className="text-[11px] leading-relaxed" style={{ color: "#EF4444" }}>
-                      {txError}
-                    </p>
-                  </motion.div>
-                )}
-
-                {isSuccess && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex gap-3 p-4 rounded-xl"
-                    style={{
-                      background: "rgba(16,185,129,0.08)",
-                      border: "1px solid rgba(16,185,129,0.2)",
-                    }}
-                  >
-                    <CheckCircle2 style={{ width: 14, height: 14, color: "#10B981", flexShrink: 0, marginTop: 1 }} />
-                    <p className="text-xs font-semibold" style={{ color: "#10B981" }}>
-                      Listing successfully created!
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* CTA */}
-              <motion.button
+              {/* Action Button */}
+              <button
                 onClick={handleList}
                 disabled={!price || isPending || isConfirming}
-                whileTap={{ y: 1, scale: 0.985 }}
-                transition={{ type: "spring", stiffness: 100, damping: 20 }}
-                className="w-full btn-primary py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold disabled:opacity-50 disabled:cursor-not-allowed group"
+                className="w-full btn-primary py-5 rounded-2xl flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isConfirming ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    Confirming…
+                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Confirming Transaction...
                   </>
                 ) : isPending ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    Check Wallet…
+                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Check Wallet...
                   </>
                 ) : (
                   <>
                     {step === "approve" ? "1. Approve Marketplace" : "2. Confirm Listing"}
-                    <ArrowRight
-                      style={{ width: 15, height: 15 }}
-                      className="group-hover:translate-x-1 transition-transform"
-                    />
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
-              </motion.button>
+              </button>
+
+              {txError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-center text-sm font-bold"
+                >
+                  {txError}
+                </motion.div>
+              )}
+
+              {isSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-2xl bg-mezo-success/10 border border-mezo-success/20 text-mezo-success text-center text-sm font-bold"
+                >
+                  Listing successfully created!
+                </motion.div>
+              )}
             </div>
           </motion.div>
         </div>

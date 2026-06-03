@@ -1,21 +1,9 @@
 "use client";
 
-/*
-  Taste-skill rules applied:
-  ✓ BANNED: centered header → left-aligned, asymmetric two-part header
-  ✓ BANNED: 3-col equal grid → table with hover reveals and staggered rows
-  ✓ tabular-nums on all stats and price values
-  ✓ Spring physics: stiffness:100, damping:20
-  ✓ Empty state: composed, shows how to get started
-  ✓ Sticky table header using transform rule (GPU)
-  ✓ Animate ONLY transform + opacity (GPU rule)
-  ✓ Tinted shadows (hue-matched, not generic gray-black)
-*/
-
 import React from "react";
 import { useNetwork } from "@/hooks/useNetwork";
 import { useActivityFeed } from "@/hooks/useActivityFeed";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Tag,
   ShoppingCart,
@@ -27,7 +15,6 @@ import {
   ShieldCheck as ShieldCheckIcon,
   Loader2,
   AlertCircle,
-  TrendingUp,
 } from "lucide-react";
 
 function formatTime(timestamp: number | null): string {
@@ -43,83 +30,13 @@ function formatTime(timestamp: number | null): string {
 }
 
 function formatDiscount(discountBps: number | null): React.ReactNode {
-  if (discountBps === null) return <span style={{ color: "var(--text-3)" }}>—</span>;
-  if (discountBps === 0) return (
-    <span
-      className="text-[10px] font-bold tabular-nums"
-      style={{ color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}
-    >
-      Par
-    </span>
-  );
+  if (discountBps === null) return <span className="text-mezo-border">—</span>;
+  if (discountBps === 0) return <span className="text-mezo-muted text-xs font-bold">Par</span>;
   const pct = (Math.abs(discountBps) / 100).toFixed(1);
   if (discountBps > 0) {
-    return (
-      <span
-        className="text-[10px] font-black tabular-nums"
-        style={{ color: "#10B981", fontVariantNumeric: "tabular-nums" }}
-      >
-        {pct}% off
-      </span>
-    );
+    return <span className="text-mezo-success text-xs font-black">{pct}% OFF</span>;
   }
-  return (
-    <span
-      className="text-[10px] font-black tabular-nums"
-      style={{ color: "#EF4444", fontVariantNumeric: "tabular-nums" }}
-    >
-      +{pct}% prem
-    </span>
-  );
-}
-
-// ─── Event type pill ─────────────────────────────────────────────────────────
-function EventPill({ type }: { type: "sale" | "listed" | "cancelled" }) {
-  const config = {
-    sale: { icon: ShoppingCart, label: "Sale", color: "#10B981", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.22)" },
-    listed: { icon: Tag, label: "List", color: "#F7931A", bg: "rgba(247,147,26,0.08)", border: "rgba(247,147,26,0.22)" },
-    cancelled: { icon: XCircle, label: "Cancel", color: "var(--text-3)", bg: "var(--bg-2)", border: "var(--border)" },
-  }[type];
-
-  const Icon = config.icon;
-
-  return (
-    <div
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
-      style={{ background: config.bg, border: `1px solid ${config.border}`, color: config.color }}
-    >
-      <Icon style={{ width: 10, height: 10 }} />
-      {config.label}
-    </div>
-  );
-}
-
-// ─── Empty / loading states ───────────────────────────────────────────────────
-function StateBlock({ icon: Icon, title, sub }: { icon: any; title: string; sub: string }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="py-24 flex flex-col items-start gap-4"
-      style={{ borderTop: "1px solid var(--border-subtle)" }}
-    >
-      <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center"
-        style={{ background: "var(--bg-2)", border: "1px solid var(--border)" }}
-      >
-        <Icon style={{ width: 18, height: 18, color: "var(--text-3)" }} />
-      </div>
-      <div>
-        <h3 className="text-base font-semibold mb-1.5" style={{ letterSpacing: "-0.02em" }}>
-          {title}
-        </h3>
-        <p className="text-sm" style={{ color: "var(--text-2)", maxWidth: "44ch" }}>
-          {sub}
-        </p>
-      </div>
-    </motion.div>
-  );
+  return <span className="text-mezo-danger text-xs font-black">+{pct}% PREM</span>;
 }
 
 export default function ActivityClient() {
@@ -127,281 +44,151 @@ export default function ActivityClient() {
   const { events, isLoading, error, isDeployed } = useActivityFeed(100);
 
   return (
-    <div className="min-h-[100dvh] pt-32 pb-20 px-4 md:px-8">
-      <div className="max-w-[1400px] mx-auto">
-
-        {/* ── Header — left-aligned, asymmetric ── */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="section-header mb-3">
-              <span className="eyebrow">Live Stream</span>
-            </div>
-            <h1 className="display-lg mb-2" style={{ color: "var(--text-1)" }}>
-              Global activity.
-            </h1>
-            <p className="text-sm" style={{ color: "var(--text-2)", maxWidth: "52ch" }}>
-              Real-time trading and listing history on Mezo{" "}
-              {network === "testnet" ? "Testnet" : "Mainnet"}.
-            </p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
-            className="flex items-center gap-4 pb-1"
-          >
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest" style={{ color: "#10B981" }}>
-              <ShieldCheckIcon style={{ width: 11, height: 11 }} />
-              On-chain verified
-            </div>
-            <div className="h-3 w-px" style={{ background: "var(--border)" }} />
-            <a
-              href={contracts.explorer}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[10px] font-semibold transition-colors"
-              style={{ color: "var(--text-3)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-            >
-              Explorer
-              <ExternalLink style={{ width: 10, height: 10 }} />
-            </a>
-          </motion.div>
+    <div className="min-h-screen pt-32 pb-20 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-12">
+          <div className="flex items-center gap-2 text-mezo-primary mb-2">
+            <History className="w-4 h-4" />
+            <span className="text-xs font-black uppercase tracking-[0.2em]">Live Stream</span>
+          </div>
+          <h1 className="text-4xl font-bold mb-2">
+            Global <span className="gradient-text">Activity</span>
+          </h1>
+          <p className="text-mezo-muted">
+            Real-time trading and listing history on Mezo{" "}
+            {network === "testnet" ? "Testnet" : "Mainnet"}.
+          </p>
         </div>
 
-        {/* ── Content area ── */}
         {!isDeployed ? (
-          <StateBlock
-            icon={TrendingUp}
-            title="No contract deployed yet"
-            sub="This activity stream will appear here as soon as the first listings and trades go live on this network."
-          />
+          <div className="glass-card rounded-3xl p-16 text-center">
+            <AlertCircle className="w-10 h-10 text-mezo-muted mx-auto mb-4" />
+            <p className="text-mezo-muted">
+              This activity stream will appear here as soon as the first
+              listings and trades go live on this network.
+            </p>
+          </div>
         ) : isLoading ? (
-          <div className="flex items-center gap-3 py-16" style={{ color: "var(--text-3)" }}>
-            <Loader2 style={{ width: 16, height: 16 }} className="animate-spin" />
-            <span className="text-sm font-medium">Loading on-chain events…</span>
+          <div className="glass-card rounded-3xl p-16 flex items-center justify-center gap-3 text-mezo-muted">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Loading on-chain events…</span>
           </div>
         ) : error ? (
-          <StateBlock
-            icon={AlertCircle}
-            title="Failed to load events"
-            sub={error}
-          />
+          <div className="glass-card rounded-3xl p-16 text-center">
+            <AlertCircle className="w-10 h-10 text-mezo-danger mx-auto mb-4" />
+            <p className="text-mezo-muted">{error}</p>
+          </div>
         ) : events.length === 0 ? (
-          <StateBlock
-            icon={History}
-            title="No activity yet"
-            sub="Be the first to list a veNFT and provide liquidity to the Mezo ecosystem."
-          />
+          <div className="glass-card rounded-3xl p-16 text-center">
+            <History className="w-10 h-10 text-mezo-muted mx-auto mb-4" />
+            <p className="text-mezo-muted">No activity yet. Be the first to list a veNFT.</p>
+          </div>
         ) : (
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl overflow-hidden"
-            style={{
-              background: "var(--bg-1)",
-              border: "1px solid var(--border-subtle)",
-              boxShadow: "var(--shadow-md)",
-            }}
+            className="glass-card rounded-3xl overflow-hidden border-mezo-border"
           >
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                    {["Event", "Item", "Price", "Discount", "From", "To", "Time"].map((h, i) => (
-                      <th
-                        key={h}
-                        className="px-6 py-4 text-left eyebrow"
-                        style={{ paddingRight: i === 6 ? 24 : undefined, textAlign: i === 6 ? "right" : "left" }}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                  <tr className="border-b border-mezo-border/50 bg-white/[0.02]">
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">Event</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">Item</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">Price</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">Discount</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">From</th>
+                    <th className="px-8 py-5 text-left text-[10px] font-black uppercase tracking-widest text-mezo-muted">To</th>
+                    <th className="px-8 py-5 text-right text-[10px] font-black uppercase tracking-widest text-mezo-muted">Time</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <AnimatePresence>
-                    {events.map((activity, index) => (
-                      <motion.tr
-                        key={`${activity.transactionHash}-${index}`}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.35, delay: Math.min(index * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
-                        className="group"
-                        style={{
-                          borderBottom: "1px solid var(--border-subtle)",
-                          transition: "background 180ms cubic-bezier(0.16,1,0.3,1)",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-2)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        {/* Event type */}
-                        <td className="px-6 py-5">
-                          <EventPill type={activity.type as any} />
-                        </td>
-
-                        {/* Item */}
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-1.5 h-1.5 rounded-full"
-                              style={{ background: activity.collection === "veBTC" ? "#F7931A" : "#4A90E2" }}
-                            />
-                            <span className="text-sm font-semibold" style={{ letterSpacing: "-0.01em" }}>
-                              {activity.collection}{" "}
-                              <span
-                                className="tabular-nums"
-                                style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-2)" }}
-                              >
-                                #{activity.tokenId.toString()}
-                              </span>
-                            </span>
+                <tbody className="divide-y divide-mezo-border/30">
+                  {events.map((activity, index) => (
+                    <tr
+                      key={`${activity.transactionHash}-${index}`}
+                      className="hover:bg-white/[0.02] transition-colors group"
+                    >
+                      <td className="px-8 py-6">
+                        {activity.type === "sale" ? (
+                          <div className="flex items-center gap-1.5 text-mezo-success text-xs font-bold uppercase tracking-wider">
+                            <ShoppingCart className="w-3.5 h-3.5" />Sale
                           </div>
-                        </td>
-
-                        {/* Price */}
-                        <td className="px-6 py-5">
-                          <span
-                            className="text-sm font-bold tabular-nums"
-                            style={{ fontVariantNumeric: "tabular-nums" }}
-                          >
-                            {activity.price}
+                        ) : activity.type === "listed" ? (
+                          <div className="flex items-center gap-1.5 text-mezo-primary text-xs font-bold uppercase tracking-wider">
+                            <Tag className="w-3.5 h-3.5" />List
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-mezo-muted text-xs font-bold uppercase tracking-wider">
+                            <XCircle className="w-3.5 h-3.5" />Cancel
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${activity.collection === "veBTC" ? "bg-mezo-primary" : "bg-mezo-accent"}`} />
+                          <span className="font-bold text-sm">{activity.collection} #{activity.tokenId.toString()}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-1">
+                          <span className="font-bold text-sm text-white">{activity.price}</span>
+                          <span className="text-[10px] font-bold text-mezo-muted">{activity.paymentToken}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        {formatDiscount(activity.discountBps)}
+                      </td>
+                      <td className="px-8 py-6 font-mono text-xs text-mezo-muted">
+                        {activity.from ? (
+                          <a href={`${contracts.explorer}/address/${activity.from}`} target="_blank" rel="noopener noreferrer" className="hover:text-mezo-primary transition-colors flex items-center gap-1">
+                            {activity.from.slice(0, 6)}…{activity.from.slice(-4)}
+                            <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        ) : <span className="text-mezo-border">—</span>}
+                      </td>
+                      <td className="px-8 py-6 font-mono text-xs text-mezo-muted">
+                        {activity.to ? (
+                          <a href={`${contracts.explorer}/address/${activity.to}`} target="_blank" rel="noopener noreferrer" className="hover:text-mezo-primary transition-colors flex items-center gap-1">
+                            {activity.to.slice(0, 6)}…{activity.to.slice(-4)}
+                            <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </a>
+                        ) : <span className="text-mezo-border">—</span>}
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        {activity.transactionHash ? (
+                          <a href={`${contracts.explorer}/tx/${activity.transactionHash}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-end gap-1.5 font-bold text-sm text-mezo-muted hover:text-mezo-primary transition-colors">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(activity.timestamp)}
+                          </a>
+                        ) : (
+                          <span className="flex items-center justify-end gap-1.5 font-bold text-sm text-mezo-muted">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(activity.timestamp)}
                           </span>
-                          <span className="text-[10px] font-semibold ml-1" style={{ color: "var(--text-3)" }}>
-                            {activity.paymentToken}
-                          </span>
-                        </td>
-
-                        {/* Discount */}
-                        <td className="px-6 py-5">
-                          {formatDiscount(activity.discountBps)}
-                        </td>
-
-                        {/* From */}
-                        <td className="px-6 py-5 font-mono text-[11px]" style={{ color: "var(--text-3)" }}>
-                          {activity.from ? (
-                            <a
-                              href={`${contracts.explorer}/address/${activity.from}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 transition-colors"
-                              style={{ color: "var(--text-3)" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-                            >
-                              {activity.from.slice(0, 6)}…{activity.from.slice(-4)}
-                              <ArrowUpRight
-                                style={{ width: 10, height: 10, opacity: 0, transition: "opacity 180ms ease" }}
-                                className="group-hover:opacity-100"
-                              />
-                            </a>
-                          ) : (
-                            <span style={{ color: "var(--border)" }}>—</span>
-                          )}
-                        </td>
-
-                        {/* To */}
-                        <td className="px-6 py-5 font-mono text-[11px]" style={{ color: "var(--text-3)" }}>
-                          {activity.to ? (
-                            <a
-                              href={`${contracts.explorer}/address/${activity.to}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 transition-colors"
-                              style={{ color: "var(--text-3)" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-                            >
-                              {activity.to.slice(0, 6)}…{activity.to.slice(-4)}
-                              <ArrowUpRight
-                                style={{ width: 10, height: 10, opacity: 0, transition: "opacity 180ms ease" }}
-                                className="group-hover:opacity-100"
-                              />
-                            </a>
-                          ) : (
-                            <span style={{ color: "var(--border)" }}>—</span>
-                          )}
-                        </td>
-
-                        {/* Time */}
-                        <td className="px-6 py-5 text-right">
-                          {activity.transactionHash ? (
-                            <a
-                              href={`${contracts.explorer}/tx/${activity.transactionHash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-end gap-1.5 text-[11px] font-medium transition-colors tabular-nums"
-                              style={{ color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
-                            >
-                              <Clock style={{ width: 10, height: 10 }} />
-                              {formatTime(activity.timestamp)}
-                            </a>
-                          ) : (
-                            <span
-                              className="inline-flex items-center justify-end gap-1.5 text-[11px] font-medium tabular-nums"
-                              style={{ color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}
-                            >
-                              <Clock style={{ width: 10, height: 10 }} />
-                              {formatTime(activity.timestamp)}
-                            </span>
-                          )}
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </AnimatePresence>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </motion.div>
         )}
 
-        {/* ── Audit / explorer footer bar ── */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
-          className="mt-8 flex items-center justify-between p-5 rounded-xl"
-          style={{
-            background: "var(--bg-1)",
-            border: "1px solid var(--border-subtle)",
-            boxShadow: "var(--shadow-sm)",
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.18)" }}
-            >
-              <ShieldCheckIcon style={{ width: 14, height: 14, color: "#10B981" }} />
+        <div className="mt-12 p-6 glass-card rounded-2xl border-mezo-success/20 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-full bg-mezo-success/10 text-mezo-success">
+              <ShieldCheckIcon className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-xs font-semibold" style={{ letterSpacing: "-0.01em" }}>
-                Verifiable Trading History
-              </p>
-              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                Every transaction corresponds to an atomic on-chain event on the Mezo EVM.
-              </p>
+              <p className="text-sm font-bold text-white uppercase tracking-wider">Verifiable Trading History</p>
+              <p className="text-xs text-mezo-muted">Every transaction corresponds to an atomic on-chain event on the Mezo EVM.</p>
             </div>
           </div>
-          <a
-            href={contracts.explorer}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline text-[11px] py-2 px-4 inline-flex items-center gap-1.5"
-          >
-            View Explorer
-            <ExternalLink style={{ width: 11, height: 11 }} />
+          <a href={contracts.explorer} target="_blank" rel="noopener noreferrer" className="btn-outline py-2 px-4 text-xs font-bold flex items-center gap-2">
+            Explorer <ExternalLink className="w-3 h-3" />
           </a>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

@@ -1,773 +1,288 @@
 "use client";
 
 import Link from "next/link";
+import { useAccount } from "wagmi";
 import { useNetwork } from "@/hooks/useNetwork";
-import {
-  motion,
-  useScroll,
-  useTransform,
-  useMotionValue,
-  useSpring,
-  AnimatePresence,
-} from "framer-motion";
-import {
-  ArrowRight,
-  Shield,
-  BarChart3,
+import { motion, useScroll, useTransform } from "framer-motion";
+import { 
+  ArrowRight, 
+  Zap, 
+  Shield, 
+  Lock, 
+  ExternalLink, 
+  TrendingUp, 
   MousePointer2,
-  Zap,
-  TrendingUp,
-  Lock,
-  ChevronRight,
+  BarChart3,
+  Globe
 } from "lucide-react";
-import { useRef, useState, useCallback } from "react";
-import { VezoLogoMark } from "@/components/Header";
+import { useRef } from "react";
 
-// ─── Magnetic button ──────────────────────────────────────────────────────────
-function MagneticButton({
-  children,
-  className,
-  href,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  href?: string;
-}) {
-  const ref = useRef<HTMLAnchorElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 120, damping: 22 });
-  const springY = useSpring(y, { stiffness: 120, damping: 22 });
+const fadeInUp = {
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+};
 
-  const onMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = ref.current?.getBoundingClientRect();
-    if (!rect) return;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    x.set((e.clientX - cx) * 0.22);
-    y.set((e.clientY - cy) * 0.22);
-  }, [x, y]);
+const stagger = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 
-  const onMouseLeave = useCallback(() => {
-    x.set(0);
-    y.set(0);
-  }, [x, y]);
-
-  return (
-    <motion.div
-      style={{ x: springX, y: springY }}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-      className="inline-block"
-    >
-      <Link href={href || "#"} ref={ref as any} className={className}>
-        {children}
-      </Link>
-    </motion.div>
-  );
-}
-
-// ─── Feature row ──────────────────────────────────────────────────────────────
-function FeatureRow({
-  icon: Icon,
-  title,
-  desc,
-  index,
-  accentColor,
-}: {
-  icon: any;
-  title: string;
-  desc: string;
-  index: number;
-  accentColor: string;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      whileInView={{ opacity: 1, x: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-      className="flex items-start gap-5 py-7"
-      style={{ borderBottom: "1px solid var(--border-subtle)" }}
-    >
-      <motion.div
-        className="shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center mt-0.5"
-        style={{
-          background: `${accentColor}10`,
-          border: `1px solid ${accentColor}22`,
-          boxShadow: `0 0 24px ${accentColor}0e`,
-        }}
-        whileHover={{ scale: 1.1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      >
-        <Icon style={{ color: accentColor, width: 18, height: 18 }} />
-      </motion.div>
-      <div className="flex-1 min-w-0">
-        <h4
-          className="font-semibold text-base mb-1.5"
-          style={{ letterSpacing: "-0.02em", color: "var(--text-1)" }}
-        >
-          {title}
-        </h4>
-        <p className="text-sm leading-relaxed" style={{ color: "var(--text-2)", maxWidth: "50ch" }}>
-          {desc}
-        </p>
-      </div>
-      <span
-        className="shrink-0 text-[9px] font-black tabular-nums mt-1.5"
-        style={{ color: accentColor, letterSpacing: "0.05em" }}
-      >
-        0{index + 1}
-      </span>
-    </motion.div>
-  );
-}
-
-// ─── Stat chip ────────────────────────────────────────────────────────────────
-function StatChip({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="eyebrow" style={{ color: "var(--text-3)" }}>{label}</span>
-      <span
-        className="font-bold tabular-nums"
-        style={{
-          fontSize: "clamp(1rem, 1.8vw, 1.3rem)",
-          letterSpacing: "-0.035em",
-          color,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
-// ─── Demo card — interactive cursor spotlight ─────────────────────────────────
-function DemoCard() {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [hovered, setHovered] = useState(false);
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  }
-
-  return (
-    <div
-      ref={cardRef}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative rounded-2xl overflow-hidden"
-      style={{
-        background: "var(--bg-1)",
-        border: `1px solid ${hovered ? "rgba(255,0,64,0.28)" : "var(--border-subtle)"}`,
-        boxShadow: hovered ? "var(--shadow-card-hover)" : "var(--shadow-md)",
-        transition: "box-shadow 300ms cubic-bezier(0.16,1,0.3,1), border-color 300ms cubic-bezier(0.16,1,0.3,1)",
-      }}
-    >
-      {/* Cursor spotlight */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "inherit",
-          opacity: hovered ? 1 : 0,
-          background: `radial-gradient(400px circle at ${mousePos.x}px ${mousePos.y}px, rgba(255,0,64,0.065), transparent 60%)`,
-          transition: "opacity 300ms ease",
-          pointerEvents: "none",
-          zIndex: 0,
-        }}
-      />
-
-      {/* Top color band */}
-      <div style={{ height: 2, background: "linear-gradient(90deg, #FF0040, #F7931A)", position: "relative", zIndex: 1 }} />
-
-      <div className="p-6 relative" style={{ zIndex: 1 }}>
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#F7931A]" />
-              <span className="eyebrow" style={{ color: "var(--text-3)" }}>veBTC #842</span>
-            </div>
-            <p className="text-[9px] font-mono" style={{ color: "var(--text-3)" }}>
-              Listed 2h ago · 0xa8f2…3e14
-            </p>
-          </div>
-          <div
-            className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest"
-            style={{
-              background: "rgba(16,185,129,0.1)",
-              border: "1px solid rgba(16,185,129,0.22)",
-              color: "#10B981",
-            }}
-          >
-            14% Off
-          </div>
-        </div>
-
-        {/* Value */}
-        <div className="mb-5">
-          <p className="eyebrow mb-1">Intrinsic Value</p>
-          <div className="flex items-baseline gap-1.5">
-            <span
-              className="font-bold tabular-nums"
-              style={{
-                fontSize: "clamp(1.8rem,3vw,2.4rem)",
-                letterSpacing: "-0.04em",
-                fontVariantNumeric: "tabular-nums",
-                color: "var(--text-1)",
-              }}
-            >
-              0.5200
-            </span>
-            <span className="text-sm font-semibold" style={{ color: "var(--text-2)" }}>BTC</span>
-          </div>
-        </div>
-
-        {/* Discount track */}
-        <div className="mb-5">
-          <div className="flex justify-between text-[10px] mb-1.5" style={{ color: "var(--text-3)" }}>
-            <span>Price vs Intrinsic</span>
-            <span style={{ color: "#10B981", fontWeight: 700 }}>14% below spot</span>
-          </div>
-          <div className="discount-track">
-            <motion.div
-              className="discount-fill"
-              initial={{ width: 0 }}
-              whileInView={{ width: "86%" }}
-              viewport={{ once: true }}
-              transition={{ duration: 1.2, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            />
-          </div>
-          <div className="flex justify-between text-[9px] mt-1" style={{ color: "var(--text-3)" }}>
-            <span className="tabular-nums">0.45 BTC listing</span>
-            <span className="tabular-nums">0.52 BTC intrinsic</span>
-          </div>
-        </div>
-
-        {/* Stats 2-col */}
-        <div className="grid grid-cols-2 gap-2 mb-5">
-          {[
-            { label: "Lock Ends", value: "22 days" },
-            { label: "Voting Power", value: "0.48" },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="p-3 rounded-xl"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--border-subtle)" }}
-            >
-              <p className="eyebrow mb-1">{s.label}</p>
-              <p
-                className="text-sm font-semibold tabular-nums"
-                style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-1)" }}
-              >
-                {s.value}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Buy button */}
-        <motion.button
-          whileHover={{ y: -2 }}
-          whileTap={{ y: 1, scale: 0.984 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 group relative overflow-hidden btn-primary"
-        >
-          <span
-            aria-hidden
-            className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none"
-            style={{ transition: "transform 600ms ease" }}
-          />
-          Buy Now
-          <ArrowRight style={{ width: 14, height: 14 }} className="group-hover:translate-x-0.5 transition-transform relative z-10" />
-        </motion.button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Floating badge ────────────────────────────────────────────────────────────
-function FloatingBadge({
-  children,
-  style,
-  delay = 0.8,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-  delay?: number;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.92 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ delay, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-      className="absolute rounded-xl px-3 py-2 text-[10px] font-bold"
-      style={{
-        background: "var(--bg-2)",
-        border: "1px solid var(--border)",
-        boxShadow: "var(--shadow-lg)",
-        backdropFilter: "blur(16px)",
-        ...style,
-      }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-// ─── Trust pill ────────────────────────────────────────────────────────────────
-function TrustPill({ label, color }: { label: string; color: string }) {
-  return (
-    <div
-      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-semibold"
-      style={{
-        background: `${color}0e`,
-        border: `1px solid ${color}20`,
-        color: "var(--text-2)",
-      }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-      {label}
-    </div>
-  );
-}
-
-// ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function HomeClient() {
-  const { network } = useNetwork();
-  const heroRef = useRef<HTMLElement>(null);
+  const { isConnected } = useAccount();
+  const { network, contracts } = useNetwork();
+  const containerRef = useRef(null);
   const { scrollYProgress } = useScroll({
-    target: heroRef,
+    target: containerRef,
     offset: ["start start", "end start"],
   });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 55]);
+
+  const y1 = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   return (
-    <div className="relative min-h-[100dvh]">
-
-      {/* ══ HERO ══ */}
-      <section ref={heroRef} className="relative pt-36 pb-24 lg:pt-52 lg:pb-44 px-4 md:px-8 overflow-hidden">
-
-        {/* Subtle grid */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none grid-overlay"
+    <div className="relative min-h-screen bg-mezo-background overflow-hidden" ref={containerRef}>
+      {/* Background Ambience */}
+      <div className="absolute inset-0 pointer-events-none">
+        <motion.div 
+          style={{ y: y1, opacity }}
+          className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] bg-mezo-primary/5 rounded-full blur-[120px]" 
         />
+        <div className="absolute top-[20%] right-[5%] w-[40%] h-[40%] bg-mezo-accent/5 rounded-full blur-[100px]" />
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+      </div>
 
-        {/* Large red glow behind hero content */}
-        <div
-          aria-hidden
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse, rgba(255,0,64,0.05) 0%, transparent 65%)",
-            filter: "blur(60px)",
-            zIndex: 0,
-          }}
-        />
+      {/* Hero Section */}
+      <section className="relative pt-40 pb-20 lg:pt-56 lg:pb-32 px-4">
+        <div className="max-w-7xl mx-auto text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="mb-8 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-mezo-muted text-xs font-bold uppercase tracking-widest"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-mezo-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-mezo-primary"></span>
+            </span>
+            Trading Live on Mezo {network === "testnet" ? "Testnet" : "Mainnet"}
+          </motion.div>
 
-        <div className="max-w-[1400px] mx-auto relative" style={{ zIndex: 1 }}>
-          <div className="grid lg:grid-cols-[1fr_460px] xl:grid-cols-[1fr_500px] gap-16 xl:gap-24 items-center">
-
-            {/* ── Left: headline + CTA ── */}
-            <motion.div style={{ opacity: heroOpacity, y: heroY }}>
-
-              {/* Live status badge */}
-              <motion.div
-                initial={{ opacity: 0, y: -14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                className="inline-flex items-center gap-2.5 mb-8 px-3.5 py-2 rounded-full"
-                style={{
-                  background: "var(--bg-2)",
-                  border: "1px solid var(--border)",
-                  boxShadow: "var(--shadow-sm)",
-                }}
-              >
-                <div className="relative flex h-2 w-2">
-                  <span
-                    className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-                    style={{ background: "#FF0040" }}
-                  />
-                  <span className="relative inline-flex rounded-full h-2 w-2 live-dot" style={{ background: "#FF0040" }} />
-                </div>
-                <span className="eyebrow" style={{ color: "var(--text-2)" }}>
-                  Live on Mezo {network === "testnet" ? "Testnet" : "Mainnet"}
-                </span>
-              </motion.div>
-
-              {/* Logo mark — large hero feature */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.84, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                className="mb-8"
-              >
-                <VezoLogoMark size={72} />
-              </motion.div>
-
-              {/* Headline */}
-              <motion.h1
-                initial={{ opacity: 0, y: 28 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="display-xl mb-6"
-                style={{ color: "var(--text-1)" }}
-              >
-                The liquidity<br />
-                layer for locked<br />
-                <span style={{ color: "#FF0040" }}>Bitcoin.</span>
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="text-base leading-relaxed mb-10"
-                style={{ color: "var(--text-2)", maxWidth: "46ch" }}
-              >
-                Buy and sell vote-escrowed BTC and MEZO positions.
-                Governance NFTs at market-determined discounts — atomic, escrowless, on Mezo.
-              </motion.p>
-
-              {/* CTAs */}
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-wrap gap-3 mb-14"
-              >
-                <MagneticButton href="/marketplace" className="btn-primary text-sm gap-2">
-                  Enter Marketplace
-                  <ArrowRight style={{ width: 14, height: 14 }} />
-                </MagneticButton>
-                <MagneticButton href="/docs" className="btn-outline text-sm">
-                  Read the Docs
-                </MagneticButton>
-              </motion.div>
-
-              {/* Stats row */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.55, duration: 0.5 }}
-                className="flex flex-wrap gap-x-8 gap-y-5 pt-8"
-                style={{ borderTop: "1px solid var(--border-subtle)" }}
-              >
-                <StatChip label="Network" value="Mezo EVM" color="var(--text-1)" />
-                <div className="w-px self-stretch" style={{ background: "var(--border-subtle)" }} />
-                <StatChip label="Assets" value="veBTC · veMEZO" color="var(--text-1)" />
-                <div className="w-px self-stretch" style={{ background: "var(--border-subtle)" }} />
-                <StatChip label="Protocol fee" value="1.00%" color="var(--text-2)" />
-                <div className="w-px self-stretch" style={{ background: "var(--border-subtle)" }} />
-                <StatChip label="Settlement" value="Atomic" color="#10B981" />
-              </motion.div>
-            </motion.div>
-
-            {/* ── Right: demo card ── */}
-            <motion.div
-              initial={{ opacity: 0, x: 40, y: 16 }}
-              animate={{ opacity: 1, x: 0, y: 0 }}
-              transition={{ duration: 0.85, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="hidden lg:block relative"
-              style={{ animation: "float 9s ease-in-out infinite" }}
+          <motion.div
+            variants={stagger}
+            initial="initial"
+            animate="animate"
+            className="mb-12"
+          >
+            <motion.h1 
+              variants={fadeInUp}
+              className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tighter mb-8 leading-[0.9] text-white"
             >
-              {/* Background glow behind card */}
-              <div
-                aria-hidden
-                className="absolute -inset-10 blur-[72px] rounded-3xl pointer-events-none"
-                style={{
-                  background: "radial-gradient(ellipse, rgba(255,0,64,0.07) 0%, transparent 70%)",
-                  zIndex: -1,
-                }}
-              />
+              The Liquidity Layer for <br />
+              <span className="gradient-text">Locked Bitcoin.</span>
+            </motion.h1>
 
-              {/* Floating badges */}
-              <FloatingBadge
-                style={{ top: -20, right: 16, color: "#10B981", display: "flex", alignItems: "center", gap: 6 }}
-                delay={0.85}
+            <motion.p
+              variants={fadeInUp}
+              className="text-lg md:text-xl text-mezo-muted max-w-2xl mx-auto leading-relaxed"
+            >
+              Buy and sell vote-escrowed BTC and MEZO positions. Access high-yield governance NFTs at a market-driven discount. Secure, transparent, and atomic.
+            </motion.p>
+          </motion.div>
+
+          <motion.div
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-24"
+          >
+            <Link
+              href="/marketplace"
+              className="btn-primary flex items-center gap-3 px-10 py-5 text-lg"
+            >
+              Enter Marketplace
+              <ArrowRight className="w-5 h-5" />
+            </Link>
+            <Link
+              href="/docs"
+              className="btn-outline flex items-center gap-3 px-10 py-5 text-lg"
+            >
+              Read Technical Docs
+            </Link>
+          </motion.div>
+
+          {/* Real Estate Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto pt-12 border-t border-white/5">
+            {[
+              { label: "Protocol Status", value: "Verified", icon: Shield, color: "text-mezo-success" },
+              { label: "Network", value: "Mezo EVM", icon: Globe, color: "text-mezo-accent" },
+              { label: "Assets Supported", value: "veBTC, veMEZO", icon: Lock, color: "text-mezo-primary" },
+              { label: "Fee Structure", value: "1.00%", icon: BarChart3, color: "text-white" },
+            ].map((stat, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + i * 0.1 }}
+                className="p-6 text-left"
               >
-                <Zap style={{ width: 10, height: 10, color: "#10B981" }} />
-                Escrowless · Atomic
-              </FloatingBadge>
-
-              <FloatingBadge
-                style={{ bottom: -22, left: 16, color: "#F7931A", display: "flex", alignItems: "center", gap: 6 }}
-                delay={1.0}
-              >
-                <Lock style={{ width: 10, height: 10, color: "#F7931A" }} />
-                Position stays in wallet
-              </FloatingBadge>
-
-              <DemoCard />
-            </motion.div>
+                <div className="flex items-center gap-2 mb-2 text-mezo-muted">
+                  <stat.icon className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">{stat.label}</span>
+                </div>
+                <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ══ TRUST STRIP ══ */}
-      <section className="py-10 px-4 md:px-8">
-        <div className="max-w-[1400px] mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-wrap items-center justify-center gap-3"
-          >
-            {[
-              { label: "NFT stays in your wallet", color: "#FF0040" },
-              { label: "Rewards continue until sale", color: "#F7931A" },
-              { label: "No whitelist or curation", color: "#10B981" },
-              { label: "Audited smart contracts", color: "#4A90E2" },
-              { label: "Atomic settlement", color: "#8B5CF6" },
-            ].map((t) => (
-              <TrustPill key={t.label} {...t} />
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══ FEATURES ══ */}
-      <section className="py-28 px-4 md:px-8 relative">
-        <div className="max-w-[1400px] mx-auto mb-20">
-          <div className="rule-fade" />
-        </div>
-
-        <div className="max-w-[1400px] mx-auto grid lg:grid-cols-[1fr_560px] gap-20 xl:gap-32 items-start">
-
-          {/* Left sticky label */}
-          <div className="lg:sticky lg:top-32">
+      {/* Trust & Transparency Section */}
+      <section className="py-32 px-4 relative bg-mezo-card/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-20 items-center">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div className="section-header mb-4">
-                <span className="eyebrow">Why Vezo</span>
-              </div>
-              <h2 className="display-lg mb-6" style={{ color: "var(--text-1)" }}>
-                Built on<br />security &<br />fairness.
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 leading-tight">
+                Built on the Foundations of <br />
+                <span className="text-mezo-primary">Security & Fairness.</span>
               </h2>
-              <p className="text-sm leading-relaxed mb-8" style={{ color: "var(--text-2)", maxWidth: "40ch" }}>
-                The Mezo ecosystem needed a way to exit locked positions without surrendering voting rights until the final moment. Vezo makes that possible.
-              </p>
-
-              {/* Mark repeat — small */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="mb-8"
-              >
-                <VezoLogoMark size={38} />
-              </motion.div>
-
-              <div className="flex flex-col gap-3">
+              <div className="space-y-8">
                 {[
-                  { label: "NFT stays in your wallet", color: "#FF0040" },
-                  { label: "Rewards continue until sale", color: "#F7931A" },
-                  { label: "No whitelist or curation", color: "#10B981" },
-                ].map((m) => (
-                  <div
-                    key={m.label}
-                    className="flex items-center gap-2.5 text-xs font-semibold"
-                    style={{ color: "var(--text-2)" }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
-                    {m.label}
+                  {
+                    title: "Escrowless Architecture",
+                    desc: "Sellers retain full control and voting rights of their NFTs until the purchase transaction is confirmed on-chain.",
+                    icon: Shield
+                  },
+                  {
+                    title: "Intrinsic Value Analysis",
+                    desc: "Our adapters calculate the real-time value of locked BTC, accounting for voting power and decay cycles.",
+                    icon: BarChart3
+                  },
+                  {
+                    title: "Permissionless Market",
+                    desc: "Any user can list their veNFTs. The marketplace facilitates price discovery for the entire Mezo ecosystem.",
+                    icon: MousePointer2
+                  }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="shrink-0 w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center text-mezo-primary">
+                      <item.icon className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold mb-2">{item.title}</h4>
+                      <p className="text-mezo-muted leading-relaxed">{item.desc}</p>
+                    </div>
                   </div>
                 ))}
               </div>
             </motion.div>
-          </div>
 
-          {/* Right feature rows */}
-          <div>
-            {[
-              {
-                icon: Shield,
-                title: "Escrowless by design",
-                desc: "Your NFT stays in your wallet. Voting rights and reward accrual continue until the exact block of sale.",
-                color: "#FF0040",
-              },
-              {
-                icon: BarChart3,
-                title: "Real-time intrinsic value",
-                desc: "Each listing calculates locked BTC value accounting for voting power decay across veBTC and veMEZO lock structures.",
-                color: "#F7931A",
-              },
-              {
-                icon: TrendingUp,
-                title: "Market-driven price discovery",
-                desc: "Discounts are determined entirely by supply and demand. No oracle manipulation, no admin pricing.",
-                color: "#10B981",
-              },
-              {
-                icon: MousePointer2,
-                title: "Open market, no gatekeeping",
-                desc: "Any holder can list. Price discovery is driven by live bids and asks — no whitelists or curation.",
-                color: "#4A90E2",
-              },
-            ].map((f, i) => (
-              <FeatureRow key={f.title} {...f} index={i} accentColor={f.color} />
-            ))}
-          </div>
-        </div>
-      </section>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-mezo-primary/20 blur-[100px] rounded-full" />
+              <div className="glass-card rounded-[2rem] p-8 border-mezo-border overflow-hidden relative">
+                <div className="flex justify-between items-center mb-12">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-mezo-primary rounded-lg" />
+                    <div>
+                      <h4 className="font-bold">veBTC Position #842</h4>
+                      <p className="text-xs text-mezo-muted tracking-widest uppercase">Listed 2h ago</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-mezo-muted uppercase font-bold mb-1">Price</p>
+                    <p className="text-xl font-bold text-mezo-success">0.45 BTC</p>
+                  </div>
+                </div>
 
-      {/* ══ HOW IT WORKS ══ */}
-      <section className="py-28 px-4 md:px-8">
-        <div className="max-w-[1400px] mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="text-center mb-20"
-          >
-            <div className="section-header justify-center mb-5">
-              <span className="eyebrow">How it works</span>
-            </div>
-            <h2 className="display-lg" style={{ color: "var(--text-1)" }}>
-              Three steps to<br />exit your position.
-            </h2>
-          </motion.div>
+                <div className="space-y-6 mb-8">
+                  <div className="flex justify-between items-end">
+                    <span className="text-sm text-mezo-muted">Intrinsic Value</span>
+                    <span className="font-bold">0.52 BTC</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      whileInView={{ width: "86%" }}
+                      transition={{ duration: 1, delay: 0.5 }}
+                      className="h-full bg-mezo-primary" 
+                    />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="px-3 py-1 rounded-full bg-mezo-success/10 text-mezo-success text-xs font-bold border border-mezo-success/20">
+                      14% DISCOUNT
+                    </div>
+                    <span className="text-xs text-mezo-muted uppercase font-bold">22 Days Remaining</span>
+                  </div>
+                </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              {
-                step: "01",
-                title: "List your veNFT",
-                desc: "Connect your wallet. Set a price. The NFT stays in your wallet — no escrow, no custody.",
-                color: "#FF0040",
-              },
-              {
-                step: "02",
-                title: "Buyer approves + buys",
-                desc: "Buyers approve the payment token and execute the purchase. Everything happens in a single atomic transaction.",
-                color: "#F7931A",
-              },
-              {
-                step: "03",
-                title: "Atomic settlement",
-                desc: "NFT transfers to the buyer, payment routes to the seller. If anything fails, the entire transaction reverts.",
-                color: "#10B981",
-              },
-            ].map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.55, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="relative p-7 rounded-2xl group"
-                style={{
-                  background: "var(--bg-1)",
-                  border: "1px solid var(--border-subtle)",
-                  boxShadow: "var(--shadow-md)",
-                  transition: "border-color 220ms var(--ease-spring), box-shadow 220ms var(--ease-spring), transform 220ms var(--ease-spring)",
-                }}
-                whileHover={{
-                  y: -3,
-                  transition: { type: "spring", stiffness: 300, damping: 22 },
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = `${item.color}28`;
-                  e.currentTarget.style.boxShadow = `var(--shadow-card-hover), 0 0 0 1px ${item.color}12`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--border-subtle)";
-                  e.currentTarget.style.boxShadow = "var(--shadow-md)";
-                }}
-              >
-                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${item.color}, transparent)`, opacity: 0.6 }} />
-                <span
-                  className="text-[11px] font-black tracking-widest mb-5 block"
-                  style={{ color: item.color }}
-                >
-                  {item.step}
-                </span>
-                <h3 className="text-lg font-bold mb-3" style={{ letterSpacing: "-0.03em", color: "var(--text-1)" }}>
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-2)" }}>
-                  {item.desc}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ CTA ══ */}
-      <section className="py-28 px-4 md:px-8">
-        <div className="max-w-[1400px] mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 26 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-3xl p-12 md:p-16 relative overflow-hidden"
-            style={{
-              background: "var(--bg-1)",
-              border: "1px solid var(--border-subtle)",
-              boxShadow: "var(--shadow-lg)",
-            }}
-          >
-            {/* Background blob */}
-            <div
-              aria-hidden
-              className="absolute -top-24 -right-24 w-[600px] h-[600px] rounded-full pointer-events-none"
-              style={{
-                background: "radial-gradient(ellipse, rgba(255,0,64,0.065) 0%, transparent 70%)",
-                filter: "blur(50px)",
-              }}
-            />
-            <div
-              aria-hidden
-              className="absolute -bottom-16 -left-16 w-[350px] h-[350px] rounded-full pointer-events-none"
-              style={{
-                background: "radial-gradient(ellipse, rgba(247,147,26,0.045) 0%, transparent 70%)",
-                filter: "blur(50px)",
-              }}
-            />
-
-            <div className="relative z-10 max-w-lg">
-              <VezoLogoMark size={50} />
-              <h2 className="display-lg mt-7 mb-4" style={{ color: "var(--text-1)" }}>
-                Join the Mezo<br />governance market.
-              </h2>
-              <p className="text-sm leading-relaxed mb-8" style={{ color: "var(--text-2)", maxWidth: "44ch" }}>
-                Whether you want to exit a locked position or acquire voting exposure to Bitcoin rewards, Vezo is where that trade happens.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <MagneticButton href="/marketplace" className="btn-primary text-sm gap-2">
-                  Start trading
-                  <ArrowRight style={{ width: 14, height: 14 }} />
-                </MagneticButton>
-                <a
-                  href="https://github.com/prajalsharma/veNFT-marketplace"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-outline text-sm"
-                >
-                  Source code
-                </a>
+                <button className="w-full py-4 bg-white text-black font-bold rounded-xl hover:bg-mezo-primary transition-colors">
+                  Purchase veNFT
+                </button>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
+
+      {/* CTA Footer */}
+      <section className="py-24 px-4 border-t border-white/5">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl font-bold mb-6">Join the Future of Mezo Governance.</h2>
+          <p className="text-mezo-muted mb-10 text-lg">
+            Whether you are looking to exit a position or gain leveraged exposure to Bitcoin rewards, Vezo Exchange is your home.
+          </p>
+          <div className="flex justify-center gap-6">
+            <Link href="/marketplace" className="btn-primary">Get Started</Link>
+            <a 
+              href="https://github.com/prajalsharma/veNFT-marketplace" 
+              target="_blank" 
+              className="btn-outline flex items-center gap-2"
+            >
+              <Github className="w-4 h-4" />
+              Source Code
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Network Footer */}
+      <footer className="py-8 border-t border-white/5 text-center">
+        <p className="text-xs text-mezo-muted uppercase tracking-[0.2em]">
+          Powered by Mezo Network • Security Audited Design • 2026
+        </p>
+      </footer>
     </div>
+  );
+}
+
+function Github(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
   );
 }

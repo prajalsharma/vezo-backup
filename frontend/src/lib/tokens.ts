@@ -7,4 +7,3 @@ export function getPaymentTokenSymbol(tokenAddress: string): "BTC" | "MEZO" | "M
   if (token === MEZO_ADDRESS) return "MEZO";
   return "MUSD";
 }
-
