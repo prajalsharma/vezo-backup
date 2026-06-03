@@ -7,31 +7,26 @@ import { getContracts, NetworkType } from "@/lib/contracts";
 
 const STORAGE_KEY = "vezo-selected-network";
 
-// Read the persisted network preference. Defaults to mainnet so the
-// marketplace always shows live listings even when the wallet is on testnet.
 function getStoredNetwork(): NetworkType {
   if (typeof window === "undefined") return "mainnet";
   return (localStorage.getItem(STORAGE_KEY) as NetworkType) ?? "mainnet";
 }
 
 export function useNetwork() {
-  const chainId = useChainId();
+  const walletChainId = useChainId();
   const { switchChain } = useSwitchChain();
 
-  const isTestnet = chainId === mezoTestnet.id;
-  const isMainnet = chainId === mezoMainnet.id;
-  const isMezoNetwork = isTestnet || isMainnet;
+  const isMezoNetwork =
+    walletChainId === mezoTestnet.id || walletChainId === mezoMainnet.id;
 
-  // selectedNetwork is independent of the wallet's chainId.
-  // Mainnet is the default — users see live listings even if their wallet
-  // is on testnet. The header toggle updates both this state and the wallet chain.
+  // selectedNetwork drives ALL data reads and is independent of wallet chain.
+  // Defaults to mainnet so live listings show regardless of wallet state.
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkType>(getStoredNetwork);
 
-  // Keep state in sync if localStorage was changed in another tab
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && (e.newValue === "mainnet" || e.newValue === "testnet")) {
-        setSelectedNetwork(e.newValue);
+        setSelectedNetwork(e.newValue as NetworkType);
       }
     };
     window.addEventListener("storage", onStorage);
@@ -40,6 +35,11 @@ export function useNetwork() {
 
   const network: NetworkType = selectedNetwork;
   const contracts = getContracts(network);
+
+  // chainId for RPC reads — must match selectedNetwork, NOT the wallet chain.
+  // Without this, reading a mainnet address with chainId=31611 (testnet) returns nothing.
+  const chainId =
+    selectedNetwork === "mainnet" ? mezoMainnet.id : mezoTestnet.id;
 
   const switchToTestnet = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, "testnet");
@@ -62,7 +62,8 @@ export function useNetwork() {
   }, [selectedNetwork, switchToMainnet, switchToTestnet]);
 
   return {
-    chainId,
+    chainId,           // read chain — matches selectedNetwork
+    walletChainId,     // actual wallet chain — for transaction/switch logic
     network,
     isTestnet: selectedNetwork === "testnet",
     isMainnet: selectedNetwork === "mainnet",
