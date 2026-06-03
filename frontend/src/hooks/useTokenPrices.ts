@@ -29,15 +29,22 @@ const FALLBACK_PRICES: TokenPrices = {
   MUSD: 1.00,
 };
 
-// CoinGecko simple/price endpoint — no API key required for low-rate use
+// CoinGecko simple/price endpoint — include_24hr_change for the ticker
 const COINGECKO_URL =
-  "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin%2Cmezo&vs_currencies=usd";
+  "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin%2Cmezo&vs_currencies=usd&include_24hr_change=true";
 
 // Cache TTL: refresh prices every 60 s
 const CACHE_TTL_MS = 60_000;
 
+export interface TokenChanges {
+  BTC:  number | null;
+  MEZO: number | null;
+  MUSD: number | null;
+}
+
 // Module-level cache so we don't refetch on every component mount
 let cachedPrices: TokenPrices | null = null;
+let cachedChanges: TokenChanges = { BTC: null, MEZO: null, MUSD: 0 };
 let cacheTimestamp = 0;
 
 async function fetchPrices(): Promise<TokenPrices> {
@@ -66,6 +73,12 @@ async function fetchPrices(): Promise<TokenPrices> {
       BTC:  Number(btcPrice),
       MEZO: Number(mezoPrice),
       MUSD: 1.00,
+    };
+    // 24h change — optional, null when unavailable
+    cachedChanges = {
+      BTC:  data?.bitcoin?.usd_24h_change != null ? Number(data.bitcoin.usd_24h_change) : null,
+      MEZO: data?.mezo?.usd_24h_change    != null ? Number(data.mezo.usd_24h_change)    : null,
+      MUSD: 0,
     };
     cacheTimestamp = now;
     return cachedPrices;
@@ -117,7 +130,7 @@ export function useTokenPrices() {
     return formatUSD(usd);
   }
 
-  return { prices, isLoading, source, toUSD };
+  return { prices, changes: cachedChanges, isLoading, source, toUSD };
 }
 
 /** Format a USD amount with appropriate precision */

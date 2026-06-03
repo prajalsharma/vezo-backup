@@ -33,6 +33,9 @@ contract VeNFTMarketplace is ReentrancyGuard {
     /// @notice All listings (listing ID => Listing)
     mapping(uint256 => Listing) public listings;
 
+    /// @notice BidRegistry — only address allowed to call fulfillBidPurchase
+    address public bidRegistry;
+
     /// @notice Current listing ID counter
     uint256 public nextListingId;
 
@@ -66,6 +69,9 @@ contract VeNFTMarketplace is ReentrancyGuard {
     /// @notice Emitted when listing price is updated
     event PriceUpdated(uint256 indexed listingId, uint256 oldPrice, uint256 newPrice);
 
+    /// @notice Emitted when bid registry is configured
+    event BidRegistrySet(address indexed registry);
+
     /// @notice Errors
     error Paused();
     error NotOwner();
@@ -78,6 +84,7 @@ contract VeNFTMarketplace is ReentrancyGuard {
     error TransferFailed();
     error ExpiredVeNFT();
     error SelfPurchase();
+    error OnlyBidRegistry();
 
     /// @notice Check if marketplace is paused
     modifier whenNotPaused() {
@@ -325,5 +332,32 @@ contract VeNFTMarketplace is ReentrancyGuard {
         address paymentToken
     ) external view returns (uint256) {
         return floorPrices[collection][paymentToken];
+    }
+
+    // ── BidRegistry integration ──────────────────────────────────────────────────
+
+    /// @notice Set the BidRegistry contract (admin only via adminContract role)
+    function setBidRegistry(address _bidRegistry) external {
+        (bool ok, bytes memory data) = adminContract.staticcall(
+            abi.encodeWithSignature("hasRole(bytes32,address)", keccak256("DEFAULT_ADMIN_ROLE"), msg.sender)
+        );
+        if (!ok || !abi.decode(data, (bool))) revert NotOwner();
+        bidRegistry = _bidRegistry;
+        emit BidRegistrySet(_bidRegistry);
+    }
+
+    /// @notice Emit a unified Purchased event for bid-based sales.
+    ///         Only callable by the registered BidRegistry contract.
+    function fulfillBidPurchase(
+        address collection,
+        uint256 tokenId,
+        address buyer,
+        address seller,
+        address token,
+        uint256 amount
+    ) external {
+        if (msg.sender != bidRegistry) revert OnlyBidRegistry();
+        // Synthetic listing ID in the high range to distinguish from real listings
+        emit Purchased((type(uint256).max / 2) + tokenId, buyer, seller, amount);
     }
 }

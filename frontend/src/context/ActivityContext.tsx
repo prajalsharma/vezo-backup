@@ -90,6 +90,10 @@ const CANCELLED_EVENT = {
   ],
 };
 
+const BID_PLACED_EVENT = { type: "event" as const, name: "BidPlaced", inputs: [{ indexed: true, name: "collection", type: "address" as const }, { indexed: true, name: "tokenId", type: "uint256" as const }, { indexed: true, name: "bidIndex", type: "uint256" as const }, { indexed: false, name: "bidder", type: "address" as const }, { indexed: false, name: "bidToken", type: "address" as const }, { indexed: false, name: "bidAmount", type: "uint256" as const }, { indexed: false, name: "expiry", type: "uint256" as const }] };
+const BID_ACCEPTED_EVENT = { type: "event" as const, name: "BidAccepted", inputs: [{ indexed: true, name: "collection", type: "address" as const }, { indexed: true, name: "tokenId", type: "uint256" as const }, { indexed: true, name: "bidIndex", type: "uint256" as const }, { indexed: false, name: "bidder", type: "address" as const }, { indexed: false, name: "seller", type: "address" as const }, { indexed: false, name: "bidToken", type: "address" as const }, { indexed: false, name: "bidAmount", type: "uint256" as const }, { indexed: false, name: "fee", type: "uint256" as const }] };
+const BID_CANCELLED_EVENT = { type: "event" as const, name: "BidCancelled", inputs: [{ indexed: true, name: "collection", type: "address" as const }, { indexed: true, name: "tokenId", type: "uint256" as const }, { indexed: true, name: "bidIndex", type: "uint256" as const }, { indexed: false, name: "bidder", type: "address" as const }] };
+
 // ── Context shape ─────────────────────────────────────────────────────────────
 
 interface ActivityContextValue {
@@ -125,6 +129,8 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
   const [error,     setError]     = useState<string | null>(null);
 
   const marketplaceAddress = contracts.marketplace as `0x${string}`;
+  const bidRegistryAddress = (contracts as any).bidRegistry as `0x${string}` | undefined;
+  const isBidRegistryDeployed = !!bidRegistryAddress && bidRegistryAddress !== "0x0000000000000000000000000000000000000000";
   const isDeployed =
     !!marketplaceAddress &&
     marketplaceAddress !== "0x0000000000000000000000000000000000000000";
@@ -138,25 +144,19 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
     async (fromBlock: bigint, toBlock: bigint, isInitial: boolean) => {
       if (!publicClient || !isDeployed) return;
 
-      const [listedLogs, purchasedLogs, cancelledLogs] = await Promise.all([
-        getLogsChunked(publicClient as any, {
-          address: marketplaceAddress,
-          event: LISTED_EVENT,
-          fromBlock,
-          toBlock,
-        }),
-        getLogsChunked(publicClient as any, {
-          address: marketplaceAddress,
-          event: PURCHASED_EVENT,
-          fromBlock,
-          toBlock,
-        }),
-        getLogsChunked(publicClient as any, {
-          address: marketplaceAddress,
-          event: CANCELLED_EVENT,
-          fromBlock,
-          toBlock,
-        }),
+      const bidFetches = isBidRegistryDeployed
+        ? [
+            getLogsChunked(publicClient as any, { address: bidRegistryAddress!, event: BID_PLACED_EVENT,   fromBlock, toBlock }),
+            getLogsChunked(publicClient as any, { address: bidRegistryAddress!, event: BID_ACCEPTED_EVENT, fromBlock, toBlock }),
+            getLogsChunked(publicClient as any, { address: bidRegistryAddress!, event: BID_CANCELLED_EVENT,fromBlock, toBlock }),
+          ]
+        : [Promise.resolve([]), Promise.resolve([]), Promise.resolve([])];
+
+      const [listedLogs, purchasedLogs, cancelledLogs, bidPlacedLogs, bidAcceptedLogs, bidCancelledLogs] = await Promise.all([
+        getLogsChunked(publicClient as any, { address: marketplaceAddress, event: LISTED_EVENT,   fromBlock, toBlock }),
+        getLogsChunked(publicClient as any, { address: marketplaceAddress, event: PURCHASED_EVENT,fromBlock, toBlock }),
+        getLogsChunked(publicClient as any, { address: marketplaceAddress, event: CANCELLED_EVENT,fromBlock, toBlock }),
+        ...bidFetches,
       ]);
 
       // Accumulate listed logs for cross-referencing
@@ -169,7 +169,7 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
 
       // Block timestamps — cap at 100 unique blocks to avoid rate limits
       const blockNumbers = new Set<bigint>();
-      [...listedLogs, ...purchasedLogs, ...cancelledLogs].forEach((l: any) => {
+      [...listedLogs, ...purchasedLogs, ...cancelledLogs, ...bidPlacedLogs, ...bidAcceptedLogs, ...bidCancelledLogs].forEach((l: any) => {
         if (l.blockNumber != null) blockNumbers.add(l.blockNumber);
       });
       const blockArr = Array.from(blockNumbers).slice(0, 100);
@@ -259,6 +259,23 @@ export function ActivityProvider({ children }: { children: React.ReactNode }) {
           transactionHash: log.transactionHash ?? "",
           timestamp:       log.blockNumber ? (blockTs.get(log.blockNumber) ?? null) : null,
         });
+      }
+
+      // ── Bid events ──────────────────────────────────────────────────────────
+      const resolveCol = (addr: string): "veBTC" | "veMEZO" =>
+        addr.toLowerCase() === contracts.veBTC.toLowerCase() ? "veBTC" : "veMEZO";
+
+      for (const log of bidPlacedLogs as any[]) {
+        const a = log.args as any;
+        newEvents.push({ type: "bid-placed", listingId: a.bidIndex, collection: resolveCol(a.collection), tokenId: a.tokenId, price: parseFloat(formatEther(a.bidAmount as bigint)).toFixed(4), paymentToken: getPaymentSymbol(a.bidToken, contracts.MUSD), from: a.bidder, to: null, blockNumber: log.blockNumber ?? 0n, transactionHash: log.transactionHash ?? "", timestamp: log.blockNumber ? (blockTs.get(log.blockNumber) ?? null) : null });
+      }
+      for (const log of bidAcceptedLogs as any[]) {
+        const a = log.args as any;
+        newEvents.push({ type: "bid-accepted", listingId: a.bidIndex, collection: resolveCol(a.collection), tokenId: a.tokenId, price: parseFloat(formatEther(a.bidAmount as bigint)).toFixed(4), paymentToken: getPaymentSymbol(a.bidToken, contracts.MUSD), from: a.seller, to: a.bidder, blockNumber: log.blockNumber ?? 0n, transactionHash: log.transactionHash ?? "", timestamp: log.blockNumber ? (blockTs.get(log.blockNumber) ?? null) : null });
+      }
+      for (const log of bidCancelledLogs as any[]) {
+        const a = log.args as any;
+        newEvents.push({ type: "bid-cancelled", listingId: a.bidIndex, collection: resolveCol(a.collection), tokenId: a.tokenId, price: "—", paymentToken: "—", from: a.bidder, to: null, blockNumber: log.blockNumber ?? 0n, transactionHash: log.transactionHash ?? "", timestamp: log.blockNumber ? (blockTs.get(log.blockNumber) ?? null) : null });
       }
 
       if (newEvents.length === 0) return;

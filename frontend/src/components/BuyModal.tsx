@@ -140,6 +140,7 @@ export function BuyModal({ isOpen, onClose, listing, onPurchaseSuccess }: BuyMod
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [sessionHash, setSessionHash] = useState<`0x${string}` | undefined>(undefined);
   const [phase, setPhase] = useState<"approve" | "buy">("approve");
+  const [showCurrencies, setShowCurrencies] = useState(false);
 
   const { isSuccess: txConfirmed, isError: txFailed, error: txError } =
     useWaitForTransactionReceipt({ hash: sessionHash });
@@ -244,7 +245,7 @@ export function BuyModal({ isOpen, onClose, listing, onPurchaseSuccess }: BuyMod
     ? parseFloat(formatEther(listing.price)).toFixed(6)
     : "0";
 
-  const { toUSD, source: priceSource } = useTokenPrices();
+  const { prices, toUSD, source: priceSource } = useTokenPrices();
   const priceUSD = listing
     ? toUSD(listing.price, paymentSymbol as "BTC" | "MEZO" | "MUSD")
     : "—";
@@ -258,6 +259,35 @@ export function BuyModal({ isOpen, onClose, listing, onPurchaseSuccess }: BuyMod
   const feeAmount = listing
     ? parseFloat(formatEther((listing.price * 100n) / 10000n)).toFixed(6)
     : "0";
+
+  // Cross-currency conversion — only compute when prices are live
+  const crossCurrency = (() => {
+    if (!listing || !prices.BTC || !prices.MEZO || priceSource !== "live") return null;
+    const priceUSDNum = (Number(listing.price) / 1e18) * prices[paymentSymbol as "BTC" | "MEZO" | "MUSD"];
+    const ivToken = listing.collection === "veBTC" ? "BTC" : "MEZO";
+    const ivUSDNum = (Number(listing.intrinsicValue) / 1e18) * prices[ivToken];
+    if (priceUSDNum === 0) return null;
+
+    const rows = [
+      { sym: "BTC",  usdPerToken: prices.BTC,  dec: 8 },
+      { sym: "MEZO", usdPerToken: prices.MEZO, dec: 4 },
+      { sym: "MUSD", usdPerToken: 1,           dec: 2 },
+    ].map(({ sym, usdPerToken, dec }) => {
+      const amt = (priceUSDNum / usdPerToken).toFixed(dec);
+      const ivInThis = usdPerToken > 0 ? ivUSDNum / usdPerToken : 0;
+      const amtNum = priceUSDNum / usdPerToken;
+      const disc = ivInThis > 0 && amtNum < ivInThis
+        ? (((ivInThis - amtNum) / ivInThis) * 100).toFixed(1)
+        : null;
+      return { sym, amt, disc, isSame: sym === paymentSymbol };
+    });
+
+    const bestIdx = rows.reduce(
+      (b, r, i) => r.disc !== null && (b === -1 || parseFloat(r.disc) > parseFloat(rows[b].disc ?? "0")) ? i : b,
+      -1
+    );
+    return { rows, bestIdx };
+  })();
 
   useEffect(() => {
     if (txConfirmed && step === "buying") {
@@ -283,6 +313,7 @@ export function BuyModal({ isOpen, onClose, listing, onPurchaseSuccess }: BuyMod
       setPhase("approve");
       setErrorMsg(null);
       setSessionHash(undefined);
+      setShowCurrencies(false);
     }
   }, [isOpen]);
 
@@ -472,6 +503,50 @@ export function BuyModal({ isOpen, onClose, listing, onPurchaseSuccess }: BuyMod
                       {usdDiscountPct}% below IV
                     </span>
                   </div>
+                )}
+
+                {/* Cross-currency toggle — only shown when live prices available */}
+                {crossCurrency && (
+                  <>
+                    <button
+                      onClick={() => setShowCurrencies(v => !v)}
+                      className="w-full flex items-center justify-between px-5 py-2 text-[11px] font-semibold text-white/30 hover:text-white/50 hover:bg-white/[0.015] transition-colors border-b border-white/[0.04]"
+                    >
+                      <span>View in other currencies</span>
+                      <span className={`transition-transform duration-200 text-[9px] ${showCurrencies ? "rotate-180" : ""}`}>▼</span>
+                    </button>
+                    <AnimatePresence>
+                      {showCurrencies && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden border-b border-white/[0.04]"
+                        >
+                          <div className="px-5 py-3 space-y-1.5">
+                            {crossCurrency.rows.map((row, i) => (
+                              <div key={row.sym} className={`flex items-center justify-between px-3 py-2 rounded-lg ${
+                                i === crossCurrency.bestIdx ? "bg-emerald-500/[0.06] border border-emerald-500/15" :
+                                row.isSame ? "bg-white/[0.025]" : ""
+                              }`}>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-bold text-white/45 w-8">{row.sym}</span>
+                                  {i === crossCurrency.bestIdx && <span className="text-[8px] font-black text-emerald-400 uppercase">best</span>}
+                                  {row.isSame && <span className="text-[8px] text-white/18 uppercase">quoted</span>}
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[12px] font-bold tabular-nums">{row.amt}</span>
+                                  {row.disc && <p className="text-[9.5px] text-emerald-400 font-bold">{row.disc}% below IV</p>}
+                                </div>
+                              </div>
+                            ))}
+                            <p className="text-[9px] text-white/18 pt-0.5">Spot prices. Payment still settles in the listed currency.</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
                 )}
 
                 {/* Total row */}

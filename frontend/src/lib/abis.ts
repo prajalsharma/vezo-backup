@@ -260,3 +260,24 @@ export const ERC721ABI = [
     type: "function",
   },
 ] as const;
+
+// ── SwapPaymentRouter ABI ─────────────────────────────────────────────────────
+export const SwapPaymentRouterABI = [
+  { inputs: [{ name: "listingId", type: "uint256" }, { name: "buyToken", type: "address" }, { name: "maxAmountIn", type: "uint256" }, { name: "amountOutMin", type: "uint256" }, { name: "maxSlippageBps", type: "uint256" }], name: "swapAndBuy", outputs: [], stateMutability: "payable", type: "function" },
+  { inputs: [], name: "platformFeeSwapBps", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "dexRouter", outputs: [{ type: "address" }], stateMutability: "view", type: "function" },
+  { anonymous: false, inputs: [{ indexed: true, name: "listingId", type: "uint256" }, { indexed: true, name: "buyer", type: "address" }, { indexed: false, name: "payToken", type: "address" }, { indexed: false, name: "amountIn", type: "uint256" }, { indexed: false, name: "quoteToken", type: "address" }, { indexed: false, name: "amountOut", type: "uint256" }, { indexed: false, name: "swapFee", type: "uint256" }], name: "SwapAndPurchase", type: "event" },
+] as const;
+
+// ── BidRegistry ABI ───────────────────────────────────────────────────────────
+export const BidRegistryABI = [
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }, { name: "bidToken", type: "address" }, { name: "bidAmount", type: "uint256" }, { name: "duration", type: "uint256" }], name: "placeBid", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }, { name: "bidIndex", type: "uint256" }], name: "cancelBid", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }, { name: "bidIndex", type: "uint256" }], name: "acceptBid", outputs: [], stateMutability: "nonpayable", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "getBidsForToken", outputs: [{ components: [{ name: "bidder", type: "address" }, { name: "bidToken", type: "address" }, { name: "bidAmount", type: "uint256" }, { name: "expiry", type: "uint256" }, { name: "active", type: "bool" }], name: "", type: "tuple[]" }], stateMutability: "view", type: "function" },
+  { inputs: [{ name: "collection", type: "address" }, { name: "tokenId", type: "uint256" }], name: "activeBidCount", outputs: [{ name: "count", type: "uint256" }], stateMutability: "view", type: "function" },
+  { inputs: [], name: "platformFeeBidBps", outputs: [{ type: "uint256" }], stateMutability: "view", type: "function" },
+  { anonymous: false, inputs: [{ indexed: true, name: "collection", type: "address" }, { indexed: true, name: "tokenId", type: "uint256" }, { indexed: true, name: "bidIndex", type: "uint256" }, { indexed: false, name: "bidder", type: "address" }, { indexed: false, name: "bidToken", type: "address" }, { indexed: false, name: "bidAmount", type: "uint256" }, { indexed: false, name: "expiry", type: "uint256" }], name: "BidPlaced", type: "event" },
+  { anonymous: false, inputs: [{ indexed: true, name: "collection", type: "address" }, { indexed: true, name: "tokenId", type: "uint256" }, { indexed: true, name: "bidIndex", type: "uint256" }, { indexed: false, name: "bidder", type: "address" }], name: "BidCancelled", type: "event" },
+  { anonymous: false, inputs: [{ indexed: true, name: "collection", type: "address" }, { indexed: true, name: "tokenId", type: "uint256" }, { indexed: true, name: "bidIndex", type: "uint256" }, { indexed: false, name: "bidder", type: "address" }, { indexed: false, name: "seller", type: "address" }, { indexed: false, name: "bidToken", type: "address" }, { indexed: false, name: "bidAmount", type: "uint256" }, { indexed: false, name: "fee", type: "uint256" }], name: "BidAccepted", type: "event" },
+] as const;

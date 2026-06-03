@@ -6,7 +6,7 @@ import { formatEther } from "viem";
 import { useNetwork } from "./useNetwork";
 
 export interface ActivityEvent {
-  type: "sale" | "listed" | "cancelled";
+  type: "sale" | "listed" | "cancelled" | "bid-placed" | "bid-accepted" | "bid-cancelled";
   listingId: bigint;
   collection: "veBTC" | "veMEZO";
   tokenId: bigint;

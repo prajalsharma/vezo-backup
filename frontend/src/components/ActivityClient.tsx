@@ -15,6 +15,8 @@ import {
   Loader2,
   AlertCircle,
   Activity,
+  Gavel,
+  CheckCircle2,
 } from "lucide-react";
 
 function formatTime(timestamp: number | null): string {
@@ -133,6 +135,21 @@ export default function ActivityClient() {
                               <div className="flex items-center gap-1.5 text-[#F7931A] text-[11px] font-bold uppercase tracking-wider">
                                 <Tag className="w-3.5 h-3.5" />
                                 <span>List</span>
+                              </div>
+                            ) : activity.type === "bid-placed" ? (
+                              <div className="flex items-center gap-1.5 text-[#4A90E2] text-[11px] font-bold uppercase tracking-wider">
+                                <Gavel className="w-3.5 h-3.5" />
+                                <span>Bid</span>
+                              </div>
+                            ) : activity.type === "bid-accepted" ? (
+                              <div className="flex items-center gap-1.5 text-purple-400 text-[11px] font-bold uppercase tracking-wider">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Bid Sale</span>
+                              </div>
+                            ) : activity.type === "bid-cancelled" ? (
+                              <div className="flex items-center gap-1.5 text-white/22 text-[11px] font-bold uppercase tracking-wider">
+                                <XCircle className="w-3.5 h-3.5" />
+                                <span>Bid Out</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5 text-white/30 text-[11px] font-bold uppercase tracking-wider">

@@ -10,6 +10,7 @@ import { VeNFTCard, VeNFTCardSkeleton } from "@/components/VeNFTCard";
 import { FilterSidebar } from "@/components/FilterSidebar";
 import { BuyModal } from "@/components/BuyModal";
 import { useMarketplace, useListing, useUserVeNFTs, Listing } from "@/hooks/useMarketplace";
+import { useAvgDiscount } from "@/hooks/useAvgDiscount";
 
 function MarketplaceListingItem({
   listingId, onBuy, onListingResolved, showInactive,
@@ -65,6 +66,7 @@ const SORT_OPTIONS = [
 export default function MarketplaceClient() {
   const { nextListingId } = useMarketplace();
   const { refetchVeNFTs } = useUserVeNFTs();
+  const { avgDiscountPct, isLoading: discountLoading, tooltip: discountTooltip } = useAvgDiscount();
   const [collectionFilter, setCollectionFilter] = useState<"all" | "veBTC" | "veMEZO">("all");
   const [sortBy, setSortBy] = useState("discount");
   const [activeOnly, setActiveOnly] = useState(true);
@@ -150,7 +152,19 @@ export default function MarketplaceClient() {
               <div className="flex flex-wrap gap-2">
                 <StatBadge icon={Coins}      label="veBTC Floor"  value="0.42 BTC"   color="#F7931A" />
                 <StatBadge icon={Zap}        label="veMEZO Floor" value="120k MEZO"  color="#4A90E2" />
-                <StatBadge icon={TrendingUp} label="Avg Discount" value="16.4%"      color="#10B981" />
+                <div className="relative group">
+                  <StatBadge
+                    icon={TrendingUp}
+                    label="Avg Discount"
+                    value={discountLoading ? "…" : `${avgDiscountPct === "N/A" ? "N/A" : avgDiscountPct + "%"}`}
+                    color="#10B981"
+                  />
+                  {discountTooltip && (
+                    <div className="absolute bottom-full left-0 mb-2 w-60 bg-[#161616] border border-white/[0.1] text-[11px] text-white/50 leading-relaxed px-3 py-2.5 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 whitespace-normal">
+                      {discountTooltip}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

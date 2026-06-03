@@ -1,12 +1,18 @@
 "use client";
 
 import { formatEther } from "viem";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Clock, CalendarDays, Tag, ArrowRight, DollarSign, TrendingDown, Lock, Infinity } from "lucide-react";
+import { Zap, Clock, CalendarDays, Tag, ArrowRight, DollarSign, TrendingDown, Lock, Infinity, Gavel } from "lucide-react";
 import { DiscountBadge } from "./DiscountBadge";
 import { CountdownCompact } from "./CountdownTimer";
 import { getPaymentTokenSymbol } from "@/lib/tokens";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
+import { useReadContract, useAccount } from "wagmi";
+import { useNetwork } from "@/hooks/useNetwork";
+import { BidRegistryABI } from "@/lib/abis";
+import { BidModal } from "./BidModal";
+import { BidListModal } from "./BidListModal";
 
 interface VeNFTCardProps {
   listingId: number;
@@ -21,6 +27,7 @@ interface VeNFTCardProps {
   seller: string;
   active?: boolean;
   onBuy?: () => void;
+  nftContract?: string;
   /** compact = grid view, expanded = featured/carousel, detailed = modal-like */
   variant?: "compact" | "expanded" | "detailed";
 }
@@ -38,12 +45,31 @@ export function VeNFTCard({
   seller,
   active = true,
   onBuy,
+  nftContract,
   variant = "compact",
 }: VeNFTCardProps) {
+  const { address: userAddress } = useAccount();
+  const { contracts } = useNetwork();
+  const [bidOpen, setBidOpen]         = useState(false);
+  const [bidListOpen, setBidListOpen] = useState(false);
+
   const isVeBTC     = collection === "veBTC";
   const lockEndSec  = Number(lockEnd);
   const isPermanent = lockEndSec === 0;
   const isExpired   = !isPermanent && lockEndSec <= Math.floor(Date.now() / 1000);
+
+  const bidAddr     = (contracts as any).bidRegistry as `0x${string}`;
+  const bidDeployed = !!bidAddr && bidAddr !== "0x0000000000000000000000000000000000000000";
+  const nftAddr     = (nftContract ?? (isVeBTC ? contracts.veBTC : (contracts as any).veMEZO)) as `0x${string}`;
+  const isOwner     = !!userAddress && userAddress.toLowerCase() === seller.toLowerCase();
+
+  const { data: bidCount } = useReadContract({
+    address: bidAddr,
+    abi: BidRegistryABI,
+    functionName: "activeBidCount",
+    args: [nftAddr, tokenId],
+    query: { enabled: bidDeployed && !isExpired && active },
+  });
 
   const formattedPrice       = parseFloat(formatEther(price)).toFixed(5);
   const formattedIntrinsic   = parseFloat(formatEther(intrinsicValue)).toFixed(5);
@@ -271,7 +297,30 @@ export function VeNFTCard({
             <ArrowRight className="relative z-10 w-4 h-4 group-hover/btn:translate-x-0.5 transition-transform" />
           )}
         </button>
+
+        {/* Bid button — only when registry deployed and NFT is active/not-expired */}
+        {bidDeployed && active && !isExpired && (
+          <button
+            onClick={() => isOwner ? setBidListOpen(true) : setBidOpen(true)}
+            className="mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold bg-white/[0.03] border border-white/[0.06] text-white/40 hover:bg-white/[0.06] hover:text-white/65 hover:border-white/[0.1] transition-all"
+          >
+            <Gavel className="w-3.5 h-3.5" />
+            {isOwner
+              ? bidCount != null && Number(bidCount) > 0
+                ? `${Number(bidCount)} Bid${Number(bidCount) !== 1 ? "s" : ""}`
+                : "View Bids"
+              : "Place Bid"
+            }
+          </button>
+        )}
       </div>
+
+      {bidOpen && (
+        <BidModal isOpen={bidOpen} onClose={() => setBidOpen(false)} collection={nftAddr} tokenId={tokenId} collectionName={collection} intrinsicValue={intrinsicValue} onBidPlaced={() => setBidOpen(false)} />
+      )}
+      {bidListOpen && (
+        <BidListModal isOpen={bidListOpen} onClose={() => setBidListOpen(false)} collection={nftAddr} tokenId={tokenId} collectionName={collection} intrinsicValue={intrinsicValue} onBidAccepted={() => setBidListOpen(false)} />
+      )}
     </motion.article>
   );
 }

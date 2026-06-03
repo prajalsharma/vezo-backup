@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, FlaskConical, Globe, Github, Zap } from "lucide-react";
 import { useState } from "react";
+import { PriceTicker } from "@/components/PriceTicker";
 
 export function Header() {
   const { network, isTestnet, toggleNetwork } = useNetwork();
@@ -129,6 +130,9 @@ export function Header() {
                 {!isTestnet && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
               </button>
             </div>
+
+            {/* Live price ticker — only renders when CoinGecko data is live */}
+            <PriceTicker />
 
             {/* GitHub */}
             <a
