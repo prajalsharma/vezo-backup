@@ -3,5 +3,16 @@
   "installCommand": "cd .. && npm install --legacy-peer-deps",
   "buildCommand": "cd .. && npm run build --workspace=mezo-venft-frontend",
   "outputDirectory": ".next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src 'self' https:"
+        }
+      ]
+    }
+  ]
 }

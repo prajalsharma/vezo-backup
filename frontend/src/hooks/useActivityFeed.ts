@@ -23,12 +23,13 @@ export interface ActivityEvent {
   timestamp: number | null;
 }
 
-// Route through the Next.js API proxy (same-origin) to avoid the CORS block
-// from validationcloud.io / rpc.test.mezo.org when called from the browser.
-const RPC_URLS: Record<number, string[]> = {
-  31612: ["/api/rpc/mainnet"],
-  31611: ["/api/rpc/testnet"],
-};
+// Build absolute proxy URLs at call time so window.location.origin is available.
+// Module-level code can run during SSR bundling; window is only safe inside hooks/effects.
+function getRpcUrls(chainId: number): string[] {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  if (chainId === 31612) return [`${origin}/api/rpc/mainnet`];
+  return [`${origin}/api/rpc/testnet`];
+}
 
 // How far back to look and how many blocks per chunk.
 // Mainnet: scan the last 200k blocks (~8 days at ~3.5 s/block).
@@ -82,7 +83,7 @@ async function withFallback<T>(
   chainId: number,
   fn: (client: AnyClient) => Promise<T>
 ): Promise<T> {
-  const urls = RPC_URLS[chainId] ?? RPC_URLS[31612];
+  const urls = getRpcUrls(chainId);
   const chain = chainId === 31612 ? mezoMainnet : mezoTestnet;
   let lastErr: unknown;
   for (const url of urls) {

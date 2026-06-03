@@ -59,6 +59,11 @@ function buildWallets(network: "mainnet" | "testnet") {
   ];
 }
 
+// Config is client-only (ssr: false + typeof window guard), so window.location
+// is always available here. Use an absolute URL so viem's http() transport
+// works correctly — relative URLs are not guaranteed to resolve in all viem versions.
+const _origin = typeof window !== "undefined" ? window.location.origin : "";
+
 export const config = typeof window !== "undefined" ? getConfig({
   appName: "Vezo Exchange",
   walletConnectProjectId: projectId,
@@ -68,13 +73,13 @@ export const config = typeof window !== "undefined" ? getConfig({
   // Inject custom wallet list so OKX appears as an EVM wallet
   wallets: buildWallets("mainnet"),
   transports: {
-    // Route through our Next.js API proxy so the RPC call happens server-side
-    // and avoids the CORS block from validationcloud.io / rpc.test.mezo.org.
+    // Route through our Next.js API proxy (absolute URL) so the RPC call happens
+    // server-side and avoids the CORS block from validationcloud.io.
     [mezoMainnet.id]: http(
-      process.env.NEXT_PUBLIC_RPC_MAINNET || "/api/rpc/mainnet"
+      process.env.NEXT_PUBLIC_RPC_MAINNET || `${_origin}/api/rpc/mainnet`
     ),
     [mezoTestnet.id]: http(
-      process.env.NEXT_PUBLIC_RPC_TESTNET || "/api/rpc/testnet"
+      process.env.NEXT_PUBLIC_RPC_TESTNET || `${_origin}/api/rpc/testnet`
     ),
   },
   ssr: false,

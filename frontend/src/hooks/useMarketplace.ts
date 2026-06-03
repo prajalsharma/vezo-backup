@@ -947,19 +947,23 @@ export function useActiveListings() {
     const discountBps = computeDiscountBps(intrinsicValue, nftLockedTokenAddr, raw.price, raw.paymentToken);
 
     // Cross-check: the seller must still own the NFT, otherwise the listing is
-    // stale and buyNFT would revert. Three states are handled explicitly:
+    // stale and buyNFT would revert. Four states handled:
     //   • batch not resolved yet (ownerOfResults == null) → optimistically trust
     //     the contract's active flag to avoid a flash of "inactive"
-    //   • ownerOf reverted (status "failure" → result undefined; token burned or
-    //     nonexistent) OR owner is the zero address → treat as NOT owned (hide it)
+    //   • individual call failed (status "failure") → RPC/network error; trust
+    //     the contract's active flag rather than hiding valid listings
+    //   • owner is zero address → stale/burned token, hide it
     //   • otherwise compare the live owner to the seller
-    const currentOwner = (ownerOfResults?.[i]?.result as string | undefined)?.toLowerCase();
+    const ownerResult = ownerOfResults?.[i];
+    const currentOwner = (ownerResult?.result as string | undefined)?.toLowerCase();
     const sellerStillOwns =
-      ownerOfResults == null // still loading — avoid flash-hiding
+      ownerOfResults == null            // batch still loading
         ? true
-        : currentOwner != null &&
-          currentOwner !== ZERO_ADDRESS &&
-          currentOwner === raw.seller.toLowerCase();
+        : ownerResult?.status === "failure" // individual call reverted/failed
+          ? true                            // trust contract active flag — don't hide on RPC error
+          : currentOwner != null &&
+            currentOwner !== ZERO_ADDRESS &&
+            currentOwner === raw.seller.toLowerCase();
     const isActive = raw.active && sellerStillOwns;
 
     return {
