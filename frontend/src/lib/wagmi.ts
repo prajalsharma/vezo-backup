@@ -1,8 +1,8 @@
 import {
   getConfig,
   getDefaultWallets,
-  mezoMainnet,
-  mezoTestnet,
+  mezoMainnet as _mezoMainnet,
+  mezoTestnet as _mezoTestnet,
   PassportProvider
 } from "@mezo-org/passport";
 import { http } from "wagmi";
@@ -14,6 +14,21 @@ import {
   rainbowWallet,
   coinbaseWallet,
 } from "@rainbow-me/rainbowkit/wallets";
+
+// Multicall3 is deployed at the canonical address on both Mezo networks.
+// Without it wagmi falls back to N individual eth_call requests — 173 calls
+// for listing slots takes ~1.4s. With Multicall3 those 173 calls become one
+// batched contract call, reducing load time from ~2s to ~300ms.
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+
+const mezoMainnet = {
+  ..._mezoMainnet,
+  contracts: { ..._mezoMainnet.contracts, multicall3: { address: MULTICALL3 } },
+};
+const mezoTestnet = {
+  ..._mezoTestnet,
+  contracts: { ..._mezoTestnet.contracts, multicall3: { address: MULTICALL3 } },
+};
 
 export { mezoMainnet, mezoTestnet, PassportProvider };
 
