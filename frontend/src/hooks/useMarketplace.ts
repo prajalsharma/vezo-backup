@@ -809,6 +809,16 @@ export function useActiveListings() {
   const isMarketplaceReady = !!marketplaceAddress && marketplaceAddress !== ZERO;
   const isAdapterReady     = !!adapterAddress     && adapterAddress     !== ZERO;
 
+  console.log("[useActiveListings] addresses", {
+    chainId,
+    marketplaceAddress,
+    adapterAddress,
+    veBTCAddress,
+    veMEZOAddress,
+    isMarketplaceReady,
+    isAdapterReady,
+  });
+
   // Step 1a: fetch nextListingId so we know how many slots to scan
   const { data: nextId, refetch: refetchNextId, isError: nextIdIsError, error: nextIdError } = useReadContract({
     address: marketplaceAddress,
@@ -816,6 +826,12 @@ export function useActiveListings() {
     functionName: "nextListingId",
     chainId,
     query: { enabled: isMarketplaceReady },
+  });
+
+  console.log("[useActiveListings] nextListingId", {
+    nextId: nextId?.toString(),
+    nextIdIsError,
+    nextIdError: nextIdError?.message,
   });
 
   const slotCount = nextId ? Number(nextId) : 0;
@@ -835,6 +851,16 @@ export function useActiveListings() {
   const { data: slotResults, isLoading: batchLoading, refetch: refetchSlots, isError: slotsIsError, error: slotsError } = useReadContracts({
     contracts: slotCalls,
     query: { enabled: isMarketplaceReady && slotCount > 0 },
+  });
+
+  console.log("[useActiveListings] slotResults", {
+    slotCount,
+    batchLoading,
+    slotsIsError,
+    slotsError: slotsError?.message,
+    slotResultsLength: slotResults?.length,
+    firstSlotResult: slotResults?.[0],
+    firstActiveSlot: slotResults?.findIndex((s: any) => s?.result?.active === true),
   });
 
   const refetch = async () => {
@@ -866,9 +892,17 @@ export function useActiveListings() {
         allRaw.push({ ...raw, collectionKey: "veBTC",  listingSlotId: i });
       } else if (collLower === veMEZOAddress.toLowerCase()) {
         allRaw.push({ ...raw, collectionKey: "veMEZO", listingSlotId: i });
+      } else {
+        console.log("[useActiveListings] slot", i, "active but unknown collection:", raw.collection, "veBTC:", veBTCAddress, "veMEZO:", veMEZOAddress);
       }
     }
   }
+
+  console.log("[useActiveListings] allRaw (active+known-collection)", {
+    count: allRaw.length,
+    slots: allRaw.map(r => r.listingSlotId),
+    collections: allRaw.map(r => r.collectionKey),
+  });
 
   // Step 2: batch-fetch intrinsicValue + lockEnd for all active listings
   const intrinsicCalls = allRaw.map(l => ({
@@ -988,6 +1022,14 @@ export function useActiveListings() {
   // an RPC/contract error (never show a false "no listings" state on failure).
   const isError = nextIdIsError || slotsIsError;
   const error = nextIdError ?? slotsError ?? null;
+
+  console.log("[useActiveListings] final output", {
+    isLoading,
+    isError,
+    listingsCount: listings.length,
+    activeListings: listings.filter(l => l.active).length,
+    listings: listings.map(l => ({ slot: l.listingId, active: l.active, collection: l.collection, tokenId: l.tokenId.toString() })),
+  });
 
   return {
     listings,
