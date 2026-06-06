@@ -809,15 +809,7 @@ export function useActiveListings() {
   const isMarketplaceReady = !!marketplaceAddress && marketplaceAddress !== ZERO;
   const isAdapterReady     = !!adapterAddress     && adapterAddress     !== ZERO;
 
-  console.log("[useActiveListings] addresses", {
-    chainId,
-    marketplaceAddress,
-    adapterAddress,
-    veBTCAddress,
-    veMEZOAddress,
-    isMarketplaceReady,
-    isAdapterReady,
-  });
+  console.log(`[VEZO] chainId=${chainId} marketplace=${marketplaceAddress} isReady=${isMarketplaceReady} adapter=${adapterAddress} veBTC=${veBTCAddress} veMEZO=${veMEZOAddress}`);
 
   // Step 1a: fetch nextListingId so we know how many slots to scan
   const { data: nextId, refetch: refetchNextId, isError: nextIdIsError, error: nextIdError } = useReadContract({
@@ -828,11 +820,7 @@ export function useActiveListings() {
     query: { enabled: isMarketplaceReady },
   });
 
-  console.log("[useActiveListings] nextListingId", {
-    nextId: nextId?.toString(),
-    nextIdIsError,
-    nextIdError: nextIdError?.message,
-  });
+  console.log(`[VEZO] nextListingId=${nextId?.toString() ?? "undefined"} isError=${nextIdIsError} error=${nextIdError?.message ?? "none"}`);
 
   const slotCount = nextId ? Number(nextId) : 0;
 
@@ -853,15 +841,9 @@ export function useActiveListings() {
     query: { enabled: isMarketplaceReady && slotCount > 0 },
   });
 
-  console.log("[useActiveListings] slotResults", {
-    slotCount,
-    batchLoading,
-    slotsIsError,
-    slotsError: slotsError?.message,
-    slotResultsLength: slotResults?.length,
-    firstSlotResult: slotResults?.[0],
-    firstActiveSlot: slotResults?.findIndex((s: any) => s?.result?.active === true),
-  });
+  const firstActive = slotResults?.findIndex((s: any) => s?.result?.active === true) ?? -1;
+  const firstResult = slotResults?.[0];
+  console.log(`[VEZO] slotCount=${slotCount} batchLoading=${batchLoading} slotsIsError=${slotsIsError} slotResultsLen=${slotResults?.length ?? "undefined"} firstActiveSlot=${firstActive} slot0status=${(firstResult as any)?.status} slot0active=${(firstResult as any)?.result?.active}`);
 
   const refetch = async () => {
     await refetchNextId();
@@ -898,11 +880,7 @@ export function useActiveListings() {
     }
   }
 
-  console.log("[useActiveListings] allRaw (active+known-collection)", {
-    count: allRaw.length,
-    slots: allRaw.map(r => r.listingSlotId),
-    collections: allRaw.map(r => r.collectionKey),
-  });
+  console.log(`[VEZO] allRaw count=${allRaw.length} slots=[${allRaw.map(r => r.listingSlotId).join(",")}] collections=[${allRaw.map(r => r.collectionKey).join(",")}]`);
 
   // Step 2: batch-fetch intrinsicValue + lockEnd for all active listings
   const intrinsicCalls = allRaw.map(l => ({
@@ -1023,13 +1001,7 @@ export function useActiveListings() {
   const isError = nextIdIsError || slotsIsError;
   const error = nextIdError ?? slotsError ?? null;
 
-  console.log("[useActiveListings] final output", {
-    isLoading,
-    isError,
-    listingsCount: listings.length,
-    activeListings: listings.filter(l => l.active).length,
-    listings: listings.map(l => ({ slot: l.listingId, active: l.active, collection: l.collection, tokenId: l.tokenId.toString() })),
-  });
+  console.log(`[VEZO] FINAL isLoading=${isLoading} isError=${isError} total=${listings.length} active=${listings.filter(l => l.active).length} slots=[${listings.map(l => `${l.listingId}:${l.active}`).join(",")}]`);
 
   return {
     listings,
