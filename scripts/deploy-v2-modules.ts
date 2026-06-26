@@ -228,34 +228,28 @@ async function main() {
     console.log(`      From the ADMIN wallet, call: setAuthorisedCaller(${marketplaceAddress}, true)`);
   }
 
-  // ── 6. SwapPaymentRouter (pay-with-any-token via DEX + buyNFT) ───────────────
-  // This is the swap path that works with the EXISTING marketplace: the buyer
-  // calls swapAndBuy(), it swaps their token → the listing currency via a
-  // Uniswap-V2-compatible DEX, then calls the marketplace's buyNFT and forwards
-  // the NFT. Unlike SwapRouter it does NOT call routePayment, so no auth wiring
-  // is needed. REQUIRES a DEX with liquidity on Mezo to actually function.
-  console.log("\n6. Deploying SwapPaymentRouter...");
-  const sprFeeBps = parseInt(process.env.SWAP_PLATFORM_FEE_BPS || "50"); // <= 100 (1%)
-  const dexRouter = process.env.DEX_ROUTER || "";
-  const wbtc      = process.env.WBTC || "";
+  // ── 6. SwapPaymentRouter (pay-with-any-token via Velodrome + buyNFT) ─────────
+  // Works with the EXISTING marketplace: the buyer calls swapAndBuy(), it swaps
+  // their token → the listing's ERC-20 quote token (e.g. MUSD) pool-direct through
+  // Mezo's Velodrome-v2 DEX, then calls buyNFT and forwards the NFT. No routePayment
+  // auth wiring needed. Mezo mainnet PoolFactory: 0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248
+  // (has a liquid BTC/MUSD pool; MEZO has no pool and cannot be swapped).
+  console.log("\n6. Deploying SwapPaymentRouter (Velodrome)...");
+  const sprFeeBps   = parseInt(process.env.SWAP_PLATFORM_FEE_BPS || "50"); // <= 100 (1%)
+  const poolFactory = process.env.POOL_FACTORY
+    || (networkName === "mezomainnet" ? "0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248" : "");
+  if (!poolFactory) {
+    console.log("   ⚠️  POOL_FACTORY not set for this network — pass the Velodrome PoolFactory address.");
+  }
   const SPRFactory = await ethers.getContractFactory("SwapPaymentRouter");
-  const spr        = await SPRFactory.deploy(adminAddress, feeRecipient, marketplaceAddress, sprFeeBps);
+  const spr        = await SPRFactory.deploy(
+    adminAddress, feeRecipient, marketplaceAddress,
+    poolFactory || "0x0000000000000000000000000000000000000000", sprFeeBps
+  );
   await spr.waitForDeployment();
   const sprAddress = await spr.getAddress();
   console.log("   ✅ SwapPaymentRouter:", sprAddress);
-
-  if (dexRouter) {
-    try {
-      await waitForTx(spr.setDexRouter(dexRouter));
-      if (wbtc) await waitForTx(spr.setWbtc(wbtc));
-      console.log("   ✅ DEX router configured:", dexRouter);
-    } catch {
-      console.log("   ⚠️  Could not set DEX router (deployer != admin). Call setDexRouter() from the ADMIN wallet.");
-    }
-  } else {
-    console.log("   ⚠️  DEX_ROUTER not set — swaps are DISABLED until setDexRouter(<uniV2Router>) is called.");
-    console.log("      A Uniswap-V2-compatible DEX with BTC/MEZO/MUSD liquidity on Mezo is REQUIRED for swaps to work.");
-  }
+  console.log("   Velodrome PoolFactory:", poolFactory || "(unset — call setPoolFactory before swaps work)");
 
   // ── Summary ────────────────────────────────────────────────────────────────
   console.log("\n=== DEPLOYMENT COMPLETE ===");
@@ -273,7 +267,7 @@ async function main() {
   console.log(`npx hardhat verify --network ${networkName} ${oracleAddress} ${adminAddress}`);
   console.log(`npx hardhat verify --network ${networkName} ${quoteAddress} ${oracleAddress} ${adminAddress} ${swapFeeBps}`);
   console.log(`npx hardhat verify --network ${networkName} ${swapAddress} ${routerAddress} ${quoteAddress} ${adminAddress}`);
-  console.log(`npx hardhat verify --network ${networkName} ${sprAddress} ${adminAddress} ${feeRecipient} ${marketplaceAddress} ${sprFeeBps}`);
+  console.log(`npx hardhat verify --network ${networkName} ${sprAddress} ${adminAddress} ${feeRecipient} ${marketplaceAddress} ${poolFactory || "0x0000000000000000000000000000000000000000"} ${sprFeeBps}`);
 
   // Save to deployments/
   const fs = await import("fs");

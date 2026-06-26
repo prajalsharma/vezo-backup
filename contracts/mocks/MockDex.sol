@@ -24,43 +24,34 @@ contract MockDexAdapter {
     }
 }
 
-/// @title MockUniV2Router
-/// @notice Minimal Uniswap-V2-compatible router for testing SwapPaymentRouter.
-///         1:1 token-for-token conversion; must be pre-funded with the output token.
-contract MockUniV2Router {
+/// @title MockVeloPool
+/// @notice Minimal Velodrome-v2 pool for testing SwapPaymentRouter. 1:1 output;
+///         must be pre-funded with the output token. The router transfers the
+///         input token in before calling swap(), mirroring the real pool.
+contract MockVeloPool {
     using SafeERC20 for IERC20;
+    address public token0;
+    address public token1;
 
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address[] calldata path,
-        address to,
-        uint256
-    ) external returns (uint256[] memory amounts) {
-        address tokenIn = path[0];
-        address tokenOut = path[path.length - 1];
-        IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
-        uint256 out = amountIn; // 1:1
-        require(out >= amountOutMin, "MockUni: min out");
-        IERC20(tokenOut).safeTransfer(to, out);
-        amounts = new uint256[](2);
-        amounts[0] = amountIn;
-        amounts[1] = out;
+    constructor(address _token0, address _token1) {
+        token0 = _token0;
+        token1 = _token1;
     }
 
-    function swapExactTokensForETH(uint256, uint256, address[] calldata, address, uint256)
-        external
-        pure
-        returns (uint256[] memory)
-    {
-        revert("MockUni: ETH path not used");
+    function getAmountOut(uint256 amountIn, address) external pure returns (uint256) {
+        return amountIn; // 1:1
     }
 
-    function swapExactETHForTokens(uint256, address[] calldata, address, uint256)
-        external
-        payable
-        returns (uint256[] memory)
-    {
-        revert("MockUni: ETH path not used");
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata) external {
+        if (amount0Out > 0) IERC20(token0).safeTransfer(to, amount0Out);
+        if (amount1Out > 0) IERC20(token1).safeTransfer(to, amount1Out);
     }
+}
+
+/// @title MockVeloPoolFactory
+/// @notice Returns a single configured pool for any token pair (test double).
+contract MockVeloPoolFactory {
+    address public pool;
+    function setPool(address _pool) external { pool = _pool; }
+    function getPool(address, address, bool) external view returns (address) { return pool; }
 }

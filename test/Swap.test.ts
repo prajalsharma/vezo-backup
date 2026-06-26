@@ -165,22 +165,30 @@ describe("SwapPaymentRouter (swap-and-buy)", function () {
     await veBTC.connect(seller).approve(await marketplace.getAddress(), tokenId);
     await marketplace.connect(seller).listNFT(await veBTC.getAddress(), tokenId, price, await musd.getAddress());
 
-    // SwapPaymentRouter wired to a mock Uniswap-V2 router (1% swap fee)
+    // SwapPaymentRouter wired to a mock Velodrome pool + factory (1% swap fee).
+    // Pool token0 = payTok, token1 = MUSD, funded with MUSD liquidity.
+    const MockPool = await ethers.getContractFactory("MockVeloPool");
+    const pool = await MockPool.deploy(await payTok.getAddress(), await musd.getAddress());
+    await pool.waitForDeployment();
+    await musd.mint(await pool.getAddress(), ethers.parseEther("1000"));
+    const MockFactory = await ethers.getContractFactory("MockVeloPoolFactory");
+    const factory = await MockFactory.deploy();
+    await factory.waitForDeployment();
+    await factory.setPool(await pool.getAddress());
+
     const SPR = await ethers.getContractFactory("SwapPaymentRouter");
-    const spr = await SPR.deploy(admin.address, swapFeeRecipient.address, await marketplace.getAddress(), 100);
+    const spr = await SPR.deploy(
+      admin.address, swapFeeRecipient.address, await marketplace.getAddress(),
+      await factory.getAddress(), 100
+    );
     await spr.waitForDeployment();
-    const MockUni = await ethers.getContractFactory("MockUniV2Router");
-    const uni = await MockUni.deploy();
-    await uni.waitForDeployment();
-    await musd.mint(await uni.getAddress(), ethers.parseEther("1000")); // DEX liquidity
-    await spr.connect(admin).setDexRouter(await uni.getAddress());
 
     await payTok.mint(buyer.address, ethers.parseEther("1000"));
 
     return { spr, marketplace, veBTC, musd, payTok, treasury, swapFeeRecipient, seller, buyer, tokenId, price };
   }
 
-  it("swaps payTok→MUSD, buys the NFT, forwards it, and refunds surplus", async function () {
+  it("swaps payTok→MUSD via Velodrome, buys the NFT, forwards it, and refunds surplus", async function () {
     const { spr, veBTC, musd, payTok, treasury, swapFeeRecipient, seller, buyer, tokenId, price } =
       await loadFixture(fx);
 
@@ -189,7 +197,7 @@ describe("SwapPaymentRouter (swap-and-buy)", function () {
 
     // fee = 1% of 60 = 0.6 payTok; netIn = 59.4 → 59.4 MUSD (1:1); amountOutMin >= price
     await expect(
-      spr.connect(buyer).swapAndBuy(0, await payTok.getAddress(), maxAmountIn, price, 0)
+      spr.connect(buyer).swapAndBuy(0, await payTok.getAddress(), maxAmountIn, price, false)
     ).to.not.be.reverted;
 
     // NFT forwarded to the real buyer
@@ -208,12 +216,12 @@ describe("SwapPaymentRouter (swap-and-buy)", function () {
     expect(await payTok.balanceOf(await spr.getAddress())).to.equal(0n);
   });
 
-  it("rejects amountOutMin below the listing price (S-9 floor)", async function () {
+  it("rejects amountOutMin below the listing price (slippage floor)", async function () {
     const { spr, payTok, buyer, price } = await loadFixture(fx);
     const maxAmountIn = ethers.parseEther("60");
     await payTok.connect(buyer).approve(await spr.getAddress(), maxAmountIn);
     await expect(
-      spr.connect(buyer).swapAndBuy(0, await payTok.getAddress(), maxAmountIn, price - 1n, 0)
+      spr.connect(buyer).swapAndBuy(0, await payTok.getAddress(), maxAmountIn, price - 1n, false)
     ).to.be.revertedWithCustomError(spr, "InsufficientOutput");
   });
 });

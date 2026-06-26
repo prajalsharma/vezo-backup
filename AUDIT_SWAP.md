@@ -163,15 +163,42 @@ matches the UI's "pay with any token" promise.
 - **Deploy script** — `deploy-v2-modules.ts` now deploys `SwapPaymentRouter` and configures
   its DEX router from `DEX_ROUTER`/`WBTC` env, and prints the address + verify command.
 
-### Remaining (your action — needs keys + infra I can't provision)
-1. **A Uniswap-V2-compatible DEX with BTC/MEZO/MUSD liquidity on Mezo.** This is the hard
-   dependency — without it `swapAndBuy` reverts `NoDexRouter`. Confirm one exists (or deploy
-   one + seed liquidity).
-2. **Deploy `SwapPaymentRouter`:** `npx hardhat run scripts/deploy-v2-modules.ts --network
-   mezomainnet` with `DEX_ROUTER` (and `WBTC`) set in `.env`.
-3. **Set `NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET`** to the deployed address (the gated UI
-   then activates).
-4. **Final BuyModal wiring:** add a pay-token picker that, when the buyer's token ≠ the
-   listing currency, calls `useSwapAndBuy` (compute `maxAmountIn`/`amountOutMin` from the
-   price ticker + a slippage buffer). The hook is ready; this is UI work best verified in a
-   browser against the live DEX.
+---
+
+## Update 2 — real DEX found and wired (Velodrome v2 on Mezo)
+
+The "needs a DEX" dependency is **resolved**: Mezo's on-chain DEX is a **Velodrome-v2
+fork** (the same vote-escrow system whose veNFTs this marketplace trades), and it already
+has a **liquid BTC/MUSD pool**. No API key, no off-chain service, no cost to you — swaps
+are 100% on-chain and the buyer pays gas.
+
+**Confirmed on-chain (Mezo mainnet):**
+- Velodrome **PoolFactory** = `0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248` (30 pools)
+- **vAMM-BTC/MUSD** pool = `0x52e604c44417233b6CcEDDDc0d640A405Caacefb`, reserves
+  ≈ **1.27 BTC / 76,457 MUSD** (~$76k/side); `getAmountOut(0.01 BTC)` ≈ 597 MUSD (BTC ≈ $59.7k).
+- **BTC at `0x7b7C…0000` is a real ERC-20** (decimals 18, `balanceOf`/`transfer` work), so
+  swaps treat it as a normal token.
+- **No MEZO pool exists** (`getPool(MEZO, *) = 0x0`) → MEZO positions **cannot** be swapped.
+
+**`SwapPaymentRouter` was rewritten to swap pool-direct against Velodrome** (`factory.getPool`
+→ `pool.getAmountOut` → `pool.swap`) — no router, no Uniswap-V2. It pulls the buyer's token,
+swaps to the listing's ERC-20 quote token, calls the existing `buyNFT`, forwards the NFT,
+and refunds surplus. Tested with a mock Velodrome pool+factory (`MockDex.sol`).
+
+**Scope of the working swap:** the listing's quote token must be ERC-20 (MUSD); the pay
+token must have a Velodrome pool to it (BTC, mUSDC, mUSDT). The headline case — **pay BTC
+for a MUSD-priced listing** — works. MEZO-priced listings and BTC-quoted (native-settled)
+listings are not swap-eligible.
+
+### Remaining (your action — no infra/keys needed, the DEX already exists)
+1. **Deploy `SwapPaymentRouter`:** `npx hardhat run scripts/deploy-v2-modules.ts --network
+   mezomainnet` — it auto-uses the mainnet PoolFactory above (override with `POOL_FACTORY`).
+2. **Set `NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET`** to the deployed address — the gated UI
+   then activates (`NEXT_PUBLIC_POOL_FACTORY_MAINNET` already defaults to the real factory).
+3. **Final BuyModal wiring:** add a pay-token picker that calls `useSwapAndBuy` — use
+   `quoteSwap()` (reads the live pool rate) to derive `maxAmountIn`/`amountOutMin` with a
+   slippage buffer. The hook is ready; this UI step is best verified in a browser against
+   the live pool.
+4. **Recommended before mainnet:** a forked-mainnet integration test against the real
+   BTC/MUSD pool (the unit tests use a 1:1 mock; a fork test confirms real-liquidity math
+   and the BTC-as-ERC-20 transfer path).
