@@ -943,10 +943,20 @@ export function useActiveListings() {
   const MEZO_TOKEN_ADDR = "0x7b7c000000000000000000000000000000000001";
 
   const listings: Listing[] = allRaw.map((raw, i) => {
+    const ivStatus = intrinsicResults?.[i]?.status;
     const ivRaw = intrinsicResults?.[i]?.result as [bigint, bigint] | undefined;
     const [intrinsicValue, lockEnd] = ivRaw ?? [0n, 0n];
     const isVeBTC    = raw.collectionKey === "veBTC";
     const votingPower = computeVotingPower(intrinsicValue, lockEnd, isVeBTC);
+
+    // A veNFT whose intrinsic value reads (0 amount, 0 lockEnd) has no locked
+    // balance and no lock — it was withdrawn/merged (burned) or emptied. Such a
+    // listing is unbuyable and renders as "worth 0", so it must be hidden. We
+    // require the adapter read to have SUCCEEDED before trusting the zero: a
+    // transient multicall failure also yields undefined → [0n,0n], and we must
+    // NOT hide (or zero-render) a real, valued listing on an RPC hiccup.
+    const intrinsicKnown = ivStatus === "success" && ivRaw !== undefined;
+    const isEmptyVeNFT   = intrinsicKnown && intrinsicValue === 0n && lockEnd === 0n;
 
     const grantMgr  = (grantManagerResults?.[i]?.result as string | undefined) ?? ZERO_ADDRESS;
     const vestingTs = (vestingEndResults?.[i]?.result  as bigint | undefined) ?? 0n;
@@ -977,7 +987,21 @@ export function useActiveListings() {
           : currentOwner != null &&
             currentOwner !== ZERO_ADDRESS &&
             currentOwner === raw.seller.toLowerCase();
-    const isActive = raw.active && sellerStillOwns;
+    // A listing is shown only if the contract marks it active, the seller still
+    // owns the NFT, and the veNFT is not a provably-empty (0-value) position.
+    const isActive = raw.active && sellerStillOwns && !isEmptyVeNFT;
+
+    // Per-listing diagnostic — explains exactly why each active on-chain listing
+    // is shown or hidden, and where a "worth 0" value comes from (genuine empty
+    // veNFT vs a failed intrinsic-value read). Inspect in the browser console.
+    console.log(
+      `[VEZO listing] slot=${raw.listingSlotId} ${raw.collectionKey} #${raw.tokenId} ` +
+      `price=${raw.price.toString()} | ivStatus=${ivStatus ?? "pending"} ` +
+      `iv=${intrinsicValue.toString()} lockEnd=${lockEnd.toString()} isEmpty=${isEmptyVeNFT} | ` +
+      `ownerStatus=${ownerResult?.status ?? "pending"} owner=${currentOwner ?? "?"} ` +
+      `seller=${raw.seller.toLowerCase()} sellerOwns=${sellerStillOwns} ` +
+      `=> ${isActive ? "SHOWN" : "HIDDEN"}`
+    );
 
     return {
       listingId:      raw.listingSlotId, // authoritative slot ID from listings[i] scan
