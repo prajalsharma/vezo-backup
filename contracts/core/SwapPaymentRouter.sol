@@ -139,7 +139,10 @@ contract SwapPaymentRouter is ReentrancyGuard, Pausable, IERC721Receiver {
             } else {
                 IERC20(quoteToken).forceApprove(IVeNFTMarketplace(marketplace).paymentRouter(), required);
                 IVeNFTMarketplace(marketplace).buyNFT(listingId);
-                uint256 surplus = IERC20(quoteToken).balanceOf(address(this));
+                // Refund only THIS swap's surplus (actualOut - required), not the
+                // contract's full quoteToken balance — a full-balance refund would
+                // sweep any residual/donated quoteToken to whoever calls next.
+                uint256 surplus = actualOut - required;
                 if (surplus > 0) IERC20(quoteToken).safeTransfer(msg.sender, surplus);
             }
 
@@ -147,6 +150,19 @@ contract SwapPaymentRouter is ReentrancyGuard, Pausable, IERC721Receiver {
         }
 
         _currentBuyer = address(0);
+
+        // Refund any unspent native BTC (overpayment). For buyToken == BTC the
+        // function spends at most maxAmountIn (netIn swapped + fee); without this
+        // refund msg.value - amountSpent would be permanently stuck (there is no
+        // BTC sweep). Cleared _currentBuyer first (CEI) so the external call cannot
+        // re-enter a settlement callback with buyer context.
+        if (buyToken == BTC) {
+            uint256 leftover = address(this).balance;
+            if (leftover > 0) {
+                (bool ok, ) = payable(msg.sender).call{value: leftover}("");
+                if (!ok) revert RefundFailed();
+            }
+        }
     }
 
     /// @notice ERC-721 receive hook — immediately forwards NFT to the real buyer.
@@ -156,8 +172,13 @@ contract SwapPaymentRouter is ReentrancyGuard, Pausable, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function _swap(address buyToken, address quoteToken, uint256 amountIn, uint256 amountOutMin, uint256 maxSlippageBps, uint256 required) internal returns (uint256 actualOut) {
-        uint256 floor = required - (maxSlippageBps > 0 ? (required * maxSlippageBps) / 10000 : 0);
+    function _swap(address buyToken, address quoteToken, uint256 amountIn, uint256 amountOutMin, uint256 /*maxSlippageBps*/, uint256 required) internal returns (uint256 actualOut) {
+        // The DEX output must cover at least the listing price. Slippage tolerance
+        // may widen the INPUT the buyer spends, but the OUTPUT floor is always
+        // `required`: a sub-`required` output would swap successfully and then
+        // revert at settlement (buyNFT needs exactly `required`), burning the
+        // buyer's swap. Enforce amountOutMin >= required up-front.
+        uint256 floor = required;
         if (amountOutMin < floor) revert InsufficientOutput(amountOutMin, floor);
 
         address r = dexRouter;

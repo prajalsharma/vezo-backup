@@ -326,9 +326,8 @@ function SwapNote({ paySymbol }: { paySymbol: string }) {
             <span style={{ color: "var(--text-2)", fontWeight: 600 }}>
               {otherTokens.join(" or ")}
             </span>{" "}
-            — it swaps automatically and clips a small routing fee. A{" "}
-            <span style={{ color: "var(--text-2)", fontWeight: 600 }}>1.5% swap fee</span> is added
-            on top of the listed price when using a different currency.
+            — it swaps to the listed currency automatically and adds a small routing
+            fee on top of the listed price.
           </p>
         </div>
       </div>
@@ -360,6 +359,12 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
   const routerAddress = contracts.router as `0x${string}`;
   const isRouterReady =
     !!routerAddress && routerAddress !== "0x0000000000000000000000000000000000000000";
+
+  // The pay-with-any-token swap is only real when SwapPaymentRouter is deployed
+  // (and a DEX router configured on-chain). Until then we must NOT advertise it.
+  const swapPaymentRouter = (contracts as { swapPaymentRouter?: string }).swapPaymentRouter;
+  const isSwapDeployed =
+    !!swapPaymentRouter && swapPaymentRouter !== "0x0000000000000000000000000000000000000000";
 
   const { data: nativeBalance } = useBalance({
     address: buyerAddress,
@@ -639,7 +644,7 @@ export function BuyModal({ isOpen, onClose, listing, onSuccess }: BuyModalProps)
                     listingPrice={listing.price}
                     prices={prices}
                   />
-                  <SwapNote paySymbol={paymentSymbol} />
+                  {isSwapDeployed && <SwapNote paySymbol={paymentSymbol} />}
                 </>
               )}
 

@@ -133,3 +133,45 @@ and the UI oversells it. Two coherent directions:
    register oracle feeds + token symbols, deploy a DEX adapter, and either retire
    `SwapRouter` or rebuild it with on-chain quote validation (S-1) and direct fee
    settlement (S-2/S-3). Only then is the `SwapNote` truthful.
+
+---
+
+## Update — direction chosen: enable real swaps
+
+The chosen path is **`SwapPaymentRouter`** as the live swap entrypoint: a buyer calls
+`swapAndBuy()`, it swaps their token → the listing currency via a Uniswap-V2 DEX, then
+calls the **existing** marketplace's `buyNFT()` and forwards the NFT. This works with the
+already-deployed marketplace (no marketplace redeploy, no `routePayment` auth wiring) and
+matches the UI's "pay with any token" promise.
+
+### Done in code (verified — `npx hardhat test`, 46 passing)
+- **`SwapPaymentRouter`** — fixed S-8 (refund unspent native BTC), S-9 (slippage floor =
+  `required`), S-10 (refund `actualOut − required`, not full balance).
+- **`SwapRouter`** — hardened anyway for safety: S-1 (re-derive quote from `QuoteRouter`
+  on-chain; reject forged quotes), S-2 (settle the fee split directly via
+  `calculateFee`/`feeRecipient` instead of the un-authorized `routePayment`), S-3 (revert
+  when no DEX adapter instead of phantom-settling). *Note:* `SwapRouter` remains
+  architecturally stranded (nothing calls `executeSwap`); `SwapPaymentRouter` is the
+  recommended path.
+- **Tests** — `test/Swap.test.ts` + `contracts/mocks/MockDex.sol` (mock DEX adapter +
+  mock Uniswap-V2 router): valid settlement, forged-quote rejection, no-adapter revert,
+  full swap-and-buy with fee split + surplus refund, and the slippage-floor guard.
+- **Frontend** — `useSwapAndBuy` hook (approve + `swapAndBuy`), `contracts.swapPaymentRouter`
+  config (env `NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_*`, default zero), and the `SwapNote` is now
+  **gated on deployment** + no longer states a wrong fee (S-7 fixed — it stays hidden until
+  the router is deployed).
+- **Deploy script** — `deploy-v2-modules.ts` now deploys `SwapPaymentRouter` and configures
+  its DEX router from `DEX_ROUTER`/`WBTC` env, and prints the address + verify command.
+
+### Remaining (your action — needs keys + infra I can't provision)
+1. **A Uniswap-V2-compatible DEX with BTC/MEZO/MUSD liquidity on Mezo.** This is the hard
+   dependency — without it `swapAndBuy` reverts `NoDexRouter`. Confirm one exists (or deploy
+   one + seed liquidity).
+2. **Deploy `SwapPaymentRouter`:** `npx hardhat run scripts/deploy-v2-modules.ts --network
+   mezomainnet` with `DEX_ROUTER` (and `WBTC`) set in `.env`.
+3. **Set `NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET`** to the deployed address (the gated UI
+   then activates).
+4. **Final BuyModal wiring:** add a pay-token picker that, when the buyer's token ≠ the
+   listing currency, calls `useSwapAndBuy` (compute `maxAmountIn`/`amountOutMin` from the
+   price ticker + a slippage buffer). The hook is ready; this is UI work best verified in a
+   browser against the live DEX.

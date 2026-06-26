@@ -176,7 +176,8 @@ contract SwapRouter is ReentrancyGuard {
         uint256 maxPaymentAmount
     ) external nonReentrant onlyAuthorised {
         // ── Validations ──────────────────────────────────────────────────────
-        if (block.timestamp > quote.expiry) revert QuoteExpired();
+        if (!quote.valid)                       revert SwapFailed();
+        if (block.timestamp > quote.expiry)     revert QuoteExpired();
         if (quote.paymentAmount > maxPaymentAmount)
             revert SlippageExceeded(quote.paymentAmount, maxPaymentAmount);
 
@@ -185,6 +186,12 @@ contract SwapRouter is ReentrancyGuard {
         uint256 payAmt    = quote.paymentAmount;
         uint256 settAmt   = quote.settlementAmount;
         uint256 feeAmt    = quote.swapFeeAmount;
+
+        // ── S-1: re-derive the quote on-chain; NEVER trust caller-supplied
+        //         amounts. getQuote() reverts SameToken if payToken == settToken,
+        //         so this also enforces a genuine cross-currency swap.
+        QuoteRouter.QuoteResult memory v = quoteRouter.getQuote(settToken, settAmt, payToken);
+        if (v.paymentAmount != payAmt || v.swapFeeAmount != feeAmt) revert SwapFailed();
 
         // Verify buyer has approved this contract for the full paymentAmount
         if (IERC20(payToken).allowance(buyer, address(this)) < payAmt)
@@ -196,35 +203,27 @@ contract SwapRouter is ReentrancyGuard {
         // ── Pull buyer's payment tokens into this contract ─────────────────
         IERC20(payToken).safeTransferFrom(buyer, address(this), payAmt);
 
-        // ── Convert payToken → settToken ──────────────────────────────────
-        uint256 receivedSettlementAmount;
-        if (payToken == settToken) {
-            // No swap needed (same token — should have gone through PaymentRouter directly)
-            receivedSettlementAmount = settAmt;
-        } else if (dexAdapter != address(0)) {
-            // Production path: route through DEX adapter
-            // Approve DEX adapter for payAmt minus fee (fee stays here)
-            uint256 swapInput = payAmt - feeAmt;
-            IERC20(payToken).forceApprove(dexAdapter, swapInput);
-            receivedSettlementAmount = IDexAdapter(dexAdapter).swap(
-                payToken,
-                settToken,
-                swapInput,
-                settAmt,   // minAmountOut = exact settlement expected
-                address(this)
-            );
-            if (receivedSettlementAmount < settAmt) revert SwapFailed();
-        } else {
-            // Stub path (no DEX adapter): assume 1:1 conversion for same-decimals
-            // tokens. In production this path is only reached if payToken == settToken
-            // (handled above) or if admin forgot to register the adapter.
-            // We treat (payAmt - feeAmt) as the settlement amount to avoid holding funds.
-            receivedSettlementAmount = settAmt;
-        }
+        // ── S-3: a real DEX adapter is REQUIRED. The old stub fabricated
+        //         receivedSettlementAmount = settAmt and routed a settToken the
+        //         contract never held — settle only tokens actually received.
+        if (dexAdapter == address(0)) revert SwapFailed();
 
-        // ── Route settlement through PaymentRouter (applies protocol fee) ──
-        IERC20(settToken).forceApprove(address(paymentRouter), receivedSettlementAmount);
-        paymentRouter.routePayment(address(this), seller, settToken, receivedSettlementAmount);
+        uint256 swapInput = payAmt - feeAmt;          // fee stays here for sweep
+        IERC20(payToken).forceApprove(dexAdapter, swapInput);
+        uint256 received = IDexAdapter(dexAdapter).swap(
+            payToken, settToken, swapInput, settAmt, address(this)
+        );
+        if (received < settAmt) revert SwapFailed();
+
+        // ── S-2: settle the fee split DIRECTLY. PaymentRouter.routePayment is
+        //         onlyMarketplace and permanently bound to VeNFTMarketplace, so
+        //         this contract can never call it. Replicate its ERC-20 accounting
+        //         using calculateFee + feeRecipient (public views) and distribute
+        //         the FULL received amount (nothing retained → no drain target).
+        (uint256 protocolFee, uint256 sellerAmount) = paymentRouter.calculateFee(received);
+        address treasury = paymentRouter.feeRecipient();
+        IERC20(settToken).safeTransfer(seller, sellerAmount);
+        if (protocolFee > 0) IERC20(settToken).safeTransfer(treasury, protocolFee);
 
         emit SwapExecuted(
             listingId,

@@ -33,6 +33,9 @@ export const CONTRACTS = {
     oracleHub:     addr("NEXT_PUBLIC_ORACLE_HUB_TESTNET",     "0x9C991f037FEDd7a6025aA2e402b8354c044D056c"),
     quoteRouter:   addr("NEXT_PUBLIC_QUOTE_ROUTER_TESTNET",   "0x85E881F000DC10Eb53e7d3896DaAC12B9073142F"),
     swapRouter:    addr("NEXT_PUBLIC_SWAP_ROUTER_TESTNET",    "0x0F16b6B253B968B8B6fe6554E32453935De22698"),
+    // SwapPaymentRouter (pay-with-any-token via DEX + buyNFT). Not yet deployed;
+    // set NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_TESTNET after deploy to enable the swap UI.
+    swapPaymentRouter: addr("NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_TESTNET", ZERO_ADDRESS),
   },
   mainnet: {
     chainId: 31612,
@@ -55,6 +58,9 @@ export const CONTRACTS = {
     oracleHub:     addr("NEXT_PUBLIC_ORACLE_HUB_MAINNET",     "0x8bE4D741353b0B7724153B25F772a595bDA2C588"),
     quoteRouter:   addr("NEXT_PUBLIC_QUOTE_ROUTER_MAINNET",   "0x7ED3d6793273f434851385854d2779d20c90b3A5"),
     swapRouter:    addr("NEXT_PUBLIC_SWAP_ROUTER_MAINNET",    "0x83a9F46C084184ae8f3B4eB4265FB081823E5013"),
+    // SwapPaymentRouter (pay-with-any-token via DEX + buyNFT). Not yet deployed;
+    // set NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET after deploy to enable the swap UI.
+    swapPaymentRouter: addr("NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET", ZERO_ADDRESS),
   },
 } as const;
 

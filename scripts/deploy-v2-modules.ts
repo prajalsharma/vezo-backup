@@ -228,6 +228,35 @@ async function main() {
     console.log(`      From the ADMIN wallet, call: setAuthorisedCaller(${marketplaceAddress}, true)`);
   }
 
+  // ── 6. SwapPaymentRouter (pay-with-any-token via DEX + buyNFT) ───────────────
+  // This is the swap path that works with the EXISTING marketplace: the buyer
+  // calls swapAndBuy(), it swaps their token → the listing currency via a
+  // Uniswap-V2-compatible DEX, then calls the marketplace's buyNFT and forwards
+  // the NFT. Unlike SwapRouter it does NOT call routePayment, so no auth wiring
+  // is needed. REQUIRES a DEX with liquidity on Mezo to actually function.
+  console.log("\n6. Deploying SwapPaymentRouter...");
+  const sprFeeBps = parseInt(process.env.SWAP_PLATFORM_FEE_BPS || "50"); // <= 100 (1%)
+  const dexRouter = process.env.DEX_ROUTER || "";
+  const wbtc      = process.env.WBTC || "";
+  const SPRFactory = await ethers.getContractFactory("SwapPaymentRouter");
+  const spr        = await SPRFactory.deploy(adminAddress, feeRecipient, marketplaceAddress, sprFeeBps);
+  await spr.waitForDeployment();
+  const sprAddress = await spr.getAddress();
+  console.log("   ✅ SwapPaymentRouter:", sprAddress);
+
+  if (dexRouter) {
+    try {
+      await waitForTx(spr.setDexRouter(dexRouter));
+      if (wbtc) await waitForTx(spr.setWbtc(wbtc));
+      console.log("   ✅ DEX router configured:", dexRouter);
+    } catch {
+      console.log("   ⚠️  Could not set DEX router (deployer != admin). Call setDexRouter() from the ADMIN wallet.");
+    }
+  } else {
+    console.log("   ⚠️  DEX_ROUTER not set — swaps are DISABLED until setDexRouter(<uniV2Router>) is called.");
+    console.log("      A Uniswap-V2-compatible DEX with BTC/MEZO/MUSD liquidity on Mezo is REQUIRED for swaps to work.");
+  }
+
   // ── Summary ────────────────────────────────────────────────────────────────
   console.log("\n=== DEPLOYMENT COMPLETE ===");
   console.log("\nNew contract addresses:");
@@ -236,6 +265,7 @@ async function main() {
   console.log(`NEXT_PUBLIC_ORACLE_HUB_${networkName === "mezomainnet" ? "MAINNET" : "TESTNET"}=${oracleAddress}`);
   console.log(`NEXT_PUBLIC_QUOTE_ROUTER_${networkName === "mezomainnet" ? "MAINNET" : "TESTNET"}=${quoteAddress}`);
   console.log(`NEXT_PUBLIC_SWAP_ROUTER_${networkName === "mezomainnet" ? "MAINNET" : "TESTNET"}=${swapAddress}`);
+  console.log(`NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_${networkName === "mezomainnet" ? "MAINNET" : "TESTNET"}=${sprAddress}`);
 
   console.log("\nVerify commands:");
   console.log(`npx hardhat verify --network ${networkName} ${biddingAddress} ${routerAddress} ${adminContractAddress}`);
@@ -243,6 +273,7 @@ async function main() {
   console.log(`npx hardhat verify --network ${networkName} ${oracleAddress} ${adminAddress}`);
   console.log(`npx hardhat verify --network ${networkName} ${quoteAddress} ${oracleAddress} ${adminAddress} ${swapFeeBps}`);
   console.log(`npx hardhat verify --network ${networkName} ${swapAddress} ${routerAddress} ${quoteAddress} ${adminAddress}`);
+  console.log(`npx hardhat verify --network ${networkName} ${sprAddress} ${adminAddress} ${feeRecipient} ${marketplaceAddress} ${sprFeeBps}`);
 
   // Save to deployments/
   const fs = await import("fs");
@@ -260,6 +291,7 @@ async function main() {
       PriceOracleHub: oracleAddress,
       QuoteRouter: quoteAddress,
       SwapRouter: swapAddress,
+      SwapPaymentRouter: sprAddress,
     },
   }, null, 2));
   console.log(`\nSaved to ${file}`);
