@@ -15,41 +15,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         className="fixed inset-0 -z-50 pointer-events-none"
         style={{ background: "var(--bg)", transition: "background 380ms var(--ease-spring)" }}
       >
-        {/* Primary red blob — top center */}
+        {/* Static ambient glows — intentionally NOT animated. Animating transform
+            on a large blurred element re-composites the whole blur every frame,
+            which janks badly on mobile. Static blurred gradients rasterize once.
+            Fewer/smaller blobs on small screens. */}
         <div
-          className="absolute top-[-12%] left-[10%] w-[800px] h-[800px] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(255,0,64,0.055) 0%, transparent 62%)",
-            filter: "blur(60px)",
-            animation: "floatSlow 16s ease-in-out infinite",
-          }}
+          className="absolute top-[-12%] left-[8%] w-[420px] sm:w-[560px] h-[420px] sm:h-[560px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(255,0,64,0.05) 0%, transparent 62%)", filter: "blur(48px)" }}
         />
-        {/* Secondary red — right */}
         <div
-          className="absolute top-[20%] right-[-8%] w-[600px] h-[600px] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(255,0,64,0.03) 0%, transparent 65%)",
-            filter: "blur(70px)",
-            animation: "float 20s ease-in-out infinite 4s",
-          }}
+          className="hidden sm:block absolute top-[24%] right-[-8%] w-[460px] h-[460px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(255,0,64,0.026) 0%, transparent 65%)", filter: "blur(56px)" }}
         />
-        {/* Blue/neutral blob — bottom left */}
         <div
-          className="absolute bottom-[-8%] left-[5%] w-[700px] h-[700px] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(74,144,226,0.035) 0%, transparent 65%)",
-            filter: "blur(60px)",
-            animation: "floatReverse 22s ease-in-out infinite 2s",
-          }}
-        />
-        {/* Orange accent — mid right */}
-        <div
-          className="absolute top-[50%] right-[15%] w-[400px] h-[400px] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(247,147,26,0.02) 0%, transparent 65%)",
-            filter: "blur(80px)",
-            animation: "floatSlow 25s ease-in-out infinite 8s",
-          }}
+          className="hidden md:block absolute bottom-[-8%] left-[4%] w-[520px] h-[520px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(74,144,226,0.03) 0%, transparent 65%)", filter: "blur(56px)" }}
         />
       </div>
 

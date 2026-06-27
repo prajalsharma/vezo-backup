@@ -354,7 +354,7 @@ export default function HomeClient() {
     <div className="relative min-h-[100dvh]">
 
       {/* ══ HERO ══ */}
-      <section ref={heroRef} className="relative pt-36 pb-24 lg:pt-52 lg:pb-44 px-4 md:px-8 overflow-hidden">
+      <section ref={heroRef} className="relative pt-28 pb-16 lg:pt-52 lg:pb-44 px-4 md:px-8 overflow-hidden">
 
         {/* Subtle grid */}
         <div
@@ -408,9 +408,10 @@ export default function HomeClient() {
                 initial={{ opacity: 0, scale: 0.84, y: 8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                className="mb-8"
+                className="mb-6 lg:mb-8"
               >
-                <VezoLogoMark size={72} />
+                <span className="block sm:hidden"><VezoLogoMark size={48} /></span>
+                <span className="hidden sm:block"><VezoLogoMark size={64} /></span>
               </motion.div>
 
               {/* Headline */}
