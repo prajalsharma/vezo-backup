@@ -24,8 +24,13 @@ export const metadata: Metadata = {
   keywords: ["Mezo", "veNFT", "veBTC", "veMEZO", "NFT", "marketplace", "DeFi", "voting power", "Vezo"],
   authors: [{ name: "Vezo" }],
   icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.png", type: "image/png", sizes: "512x512" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png",
   },
   openGraph: {
     title: "Vezo — veNFT Marketplace",
