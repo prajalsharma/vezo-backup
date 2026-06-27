@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Header, VezoLogoMark } from "@/components/Header";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { ActivityProvider } from "@/context/ActivityContext";
+import { OnboardingTour, openOnboardingTour } from "@/components/OnboardingTour";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -111,6 +112,15 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
             {/* ── Nav links ── */}
             <nav className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
+              <button
+                onClick={openOnboardingTour}
+                className="font-medium transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF0040]"
+                style={{ color: "var(--text-3)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-3)")}
+              >
+                How it works
+              </button>
               {[
                 { href: "/marketplace", label: "Marketplace" },
                 { href: "/my-listings", label: "My Listings" },
@@ -154,6 +164,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </div>
         </div>
       </footer>
+
+      {/* First-visit walkthrough (reopen via the "How it works" footer link) */}
+      <OnboardingTour />
     </>
     </ActivityProvider>
   );
