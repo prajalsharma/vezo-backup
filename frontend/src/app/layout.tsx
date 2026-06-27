@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import dynamic from "next/dynamic";
@@ -16,6 +16,17 @@ const outfit = Outfit({
   variable: "--font-outfit",
   weight: ["300", "400", "500", "600", "700", "800", "900"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover", // respect iOS safe-area insets (used by the bottom nav)
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#080808" },
+    { media: "(prefers-color-scheme: light)", color: "#F2EFE9" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "vezo | veNFT Marketplace",

@@ -175,6 +175,9 @@
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* Global safety net: never allow horizontal scroll on mobile, even if a
+       decorative/absolute element extends past the viewport edge. */
+    overflow-x: hidden;
   }
 
   body {
@@ -186,6 +189,8 @@
     position: relative;
     transition: background 380ms var(--ease-spring), color 380ms var(--ease-spring);
     min-height: 100dvh;
+    overflow-x: hidden;
+    width: 100%;
   }
 
   /* Noise grain texture — cinematic depth layer */

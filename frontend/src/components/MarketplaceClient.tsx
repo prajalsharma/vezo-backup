@@ -356,7 +356,7 @@ export default function MarketplaceClient() {
         }}
       />
 
-      <div className="min-h-[100dvh] pt-32 pb-20 px-4 md:px-8">
+      <div className="min-h-[100dvh] pt-24 md:pt-32 pb-20 px-4 md:px-8">
         <div className="max-w-[1400px] mx-auto">
 
           {/* ── Page header — left-aligned, asymmetric two-part ── */}
