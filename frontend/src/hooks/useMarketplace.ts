@@ -585,6 +585,7 @@ export function useListing(listingId: number) {
     nftLockedTokenAddr,
     price,
     listing.paymentToken,
+    lockEnd,
   );
 
   // Compute voting power from locked() data — avoids calling balanceOfNFT which

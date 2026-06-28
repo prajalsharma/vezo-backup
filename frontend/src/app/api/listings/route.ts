@@ -172,7 +172,7 @@ export async function GET(req: NextRequest) {
         const isVeBTC = l.collKey === "veBTC";
         const votingPower = computeVotingPower(intrinsicValue, lockEnd, isVeBTC, nowSec);
         const nftLockedToken = isVeBTC ? BTC_TOKEN : MEZO_TOKEN;
-        const discountBps = computeDiscountBps(intrinsicValue, nftLockedToken, l.price, l.paymentToken);
+        const discountBps = computeDiscountBps(intrinsicValue, nftLockedToken, l.price, l.paymentToken, lockEnd);
 
         let isGrant = false;
         if (grantRes !== "revert" && grantRes !== "err" && vestRes !== "revert" && vestRes !== "err") {

@@ -185,6 +185,7 @@ export function useActivityFeed(limit = 50) {
         // ── Fetch intrinsic values from adapter for unique (collection, tokenId) pairs ──
         // Build a deduplicated map keyed by "collection:tokenId"
         const ivMap = new Map<string, bigint>();
+        const lockEndMap = new Map<string, bigint>();
         const adapterAddress = contracts.adapter as `0x${string}`;
         const isAdapterReady =
           !!adapterAddress &&
@@ -236,8 +237,9 @@ export function useActivityFeed(limit = 50) {
           pairs.forEach(({ key }, i) => {
             const res = ivResults[i];
             if (res.status === "fulfilled") {
-              const [amount] = res.value as [bigint, bigint];
+              const [amount, lockEnd] = res.value as [bigint, bigint];
               ivMap.set(key, amount);
+              lockEndMap.set(key, lockEnd);
             }
           });
         }
@@ -262,7 +264,7 @@ export function useActivityFeed(limit = 50) {
             tokenId: args.tokenId ?? 0n,
             price: parseFloat(formatEther(priceRaw)).toFixed(4),
             paymentToken: getPaymentSymbol(args.paymentToken ?? "", contracts.MUSD),
-            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, args.paymentToken ?? ""),
+            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, args.paymentToken ?? "", lockEndMap.get(ivKey)),
             from: args.seller ?? "",
             to: null,
             blockNumber: log.blockNumber ?? 0n,
@@ -294,7 +296,7 @@ export function useActivityFeed(limit = 50) {
             tokenId: listedArgs.tokenId ?? 0n,
             price: parseFloat(formatEther(priceRaw)).toFixed(4),
             paymentToken: getPaymentSymbol(listedArgs.paymentToken ?? "", contracts.MUSD),
-            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, listedArgs.paymentToken ?? ""),
+            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, listedArgs.paymentToken ?? "", lockEndMap.get(ivKey)),
             from: args.seller ?? "",
             to: args.buyer ?? null,
             blockNumber: log.blockNumber ?? 0n,
@@ -326,7 +328,7 @@ export function useActivityFeed(limit = 50) {
             tokenId: listedArgs.tokenId ?? 0n,
             price: parseFloat(formatEther(priceRaw)).toFixed(4),
             paymentToken: getPaymentSymbol(listedArgs.paymentToken ?? "", contracts.MUSD),
-            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, listedArgs.paymentToken ?? ""),
+            discountBps: computeDiscountBpsNumber(iv, nftTokenAddr, priceRaw, listedArgs.paymentToken ?? "", lockEndMap.get(ivKey)),
             from: listedArgs.seller ?? "",
             to: null,
             blockNumber: log.blockNumber ?? 0n,

@@ -51,8 +51,14 @@ export function computeDiscountBps(
   nftLockedToken: string,
   listingPrice: bigint,
   paymentToken: string,
+  lockEnd?: bigint,
 ): bigint | null {
   if (intrinsicValue === 0n) return null;
+  // Permanent locks (lockEnd === 0 with a positive balance) keep the principal
+  // locked indefinitely — to ever redeem it the holder must disable the permanent
+  // flag and then wait the full max-lock. A "% below intrinsic value" discount
+  // therefore overstates the deal and is misleading, so we don't show it.
+  if (lockEnd === 0n) return null;
   if (!canComputeDiscount(nftLockedToken, paymentToken)) return null;
   return ((intrinsicValue - listingPrice) * 10_000n) / intrinsicValue;
 }
@@ -69,8 +75,10 @@ export function computeDiscountBpsNumber(
   nftLockedToken: string,
   listingPrice: bigint,
   paymentToken: string,
+  lockEnd?: bigint,
 ): number | null {
   if (intrinsicValue === 0n) return null;
+  if (lockEnd === 0n) return null; // permanent lock — discount is misleading (see computeDiscountBps)
   if (!canComputeDiscount(nftLockedToken, paymentToken)) return null;
   return Math.round((Number(intrinsicValue - listingPrice) / Number(intrinsicValue)) * 10_000);
 }
