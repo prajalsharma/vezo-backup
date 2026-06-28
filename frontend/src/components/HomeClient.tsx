@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useNetwork } from "@/hooks/useNetwork";
 import {
   motion,
-  useScroll,
-  useTransform,
   useMotionValue,
   useSpring,
   AnimatePresence,
@@ -347,42 +345,21 @@ function TrustPill({ label, color }: { label: string; color: string }) {
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function HomeClient() {
   const { network } = useNetwork();
-  const heroRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0]);
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 55]);
 
   return (
     <div className="relative min-h-[100dvh]">
 
       {/* ══ HERO ══ */}
-      <section ref={heroRef} className="relative pt-28 pb-16 lg:pt-52 lg:pb-44 px-4 md:px-8 overflow-hidden">
+      <section className="relative pt-28 pb-16 lg:pt-44 lg:pb-32 px-4 md:px-8 overflow-hidden">
 
         {/* Subtle grid */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none grid-overlay"
-        />
-
-        {/* Large red glow behind hero content */}
-        <div
-          aria-hidden
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full pointer-events-none"
-          style={{
-            background: "radial-gradient(ellipse, rgba(255,0,64,0.05) 0%, transparent 65%)",
-            filter: "blur(60px)",
-            zIndex: 0,
-          }}
-        />
+        <div aria-hidden className="absolute inset-0 pointer-events-none grid-overlay" />
 
         <div className="max-w-[1400px] mx-auto relative" style={{ zIndex: 1 }}>
           <div className="grid lg:grid-cols-[1fr_460px] xl:grid-cols-[1fr_500px] gap-16 xl:gap-24 items-center">
 
             {/* ── Left: headline + CTA ── */}
-            <motion.div style={{ opacity: heroOpacity, y: heroY }}>
+            <motion.div>
 
               {/* Live status badge */}
               <motion.div
@@ -406,17 +383,6 @@ export default function HomeClient() {
                 <span className="eyebrow" style={{ color: "var(--text-2)" }}>
                   Live on Mezo {network === "testnet" ? "Testnet" : "Mainnet"}
                 </span>
-              </motion.div>
-
-              {/* Logo mark — large hero feature */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.84, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-                className="mb-6 lg:mb-8"
-              >
-                <span className="block sm:hidden"><VezoLogoMark size={48} /></span>
-                <span className="hidden sm:block"><VezoLogoMark size={64} /></span>
               </motion.div>
 
               {/* Headline */}
@@ -477,41 +443,13 @@ export default function HomeClient() {
               </motion.div>
             </motion.div>
 
-            {/* ── Right: demo card ── */}
+            {/* ── Right: featured listing preview (static) ── */}
             <motion.div
-              initial={{ opacity: 0, x: 40, y: 16 }}
-              animate={{ opacity: 1, x: 0, y: 0 }}
-              transition={{ duration: 0.85, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="hidden lg:block relative"
-              style={{ animation: "float 9s ease-in-out infinite" }}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="hidden lg:block"
             >
-              {/* Background glow behind card */}
-              <div
-                aria-hidden
-                className="absolute -inset-10 blur-[72px] rounded-3xl pointer-events-none"
-                style={{
-                  background: "radial-gradient(ellipse, rgba(255,0,64,0.07) 0%, transparent 70%)",
-                  zIndex: -1,
-                }}
-              />
-
-              {/* Floating badges */}
-              <FloatingBadge
-                style={{ top: -20, right: 16, color: "#10B981", display: "flex", alignItems: "center", gap: 6 }}
-                delay={0.85}
-              >
-                <Zap style={{ width: 10, height: 10, color: "#10B981" }} />
-                Escrowless · Atomic
-              </FloatingBadge>
-
-              <FloatingBadge
-                style={{ bottom: -22, left: 16, color: "#F7931A", display: "flex", alignItems: "center", gap: 6 }}
-                delay={1.0}
-              >
-                <Lock style={{ width: 10, height: 10, color: "#F7931A" }} />
-                Position stays in wallet
-              </FloatingBadge>
-
               <DemoCard />
             </motion.div>
           </div>
@@ -529,13 +467,13 @@ export default function HomeClient() {
             className="flex flex-wrap items-center justify-center gap-3"
           >
             {[
-              { label: "NFT stays in your wallet", color: "#FF0040" },
-              { label: "Rewards continue until sale", color: "#F7931A" },
-              { label: "No whitelist or curation", color: "#10B981" },
-              { label: "Audited smart contracts", color: "#4A90E2" },
-              { label: "Atomic settlement", color: "#8B5CF6" },
-            ].map((t) => (
-              <TrustPill key={t.label} {...t} />
+              "NFT stays in your wallet",
+              "Rewards continue until sale",
+              "No whitelist or curation",
+              "Audited smart contracts",
+              "Atomic settlement",
+            ].map((label) => (
+              <TrustPill key={label} label={label} color="var(--text-3)" />
             ))}
           </motion.div>
         </div>
