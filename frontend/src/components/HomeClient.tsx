@@ -19,6 +19,11 @@ import {
   TrendingUp,
   Lock,
   ChevronRight,
+  ShoppingBag,
+  Tag,
+  Gavel,
+  ArrowLeftRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useRef, useState, useCallback } from "react";
 import { VezoLogoMark } from "@/components/Header";
@@ -639,74 +644,87 @@ export default function HomeClient() {
             <div className="section-header justify-center mb-5">
               <span className="eyebrow">How it works</span>
             </div>
-            <h2 className="display-lg" style={{ color: "var(--text-1)" }}>
-              Three steps to<br />exit your position.
+            <h2 className="display-lg mb-4" style={{ color: "var(--text-1)" }}>
+              Everything you can do on Vezo.
             </h2>
+            <p className="text-sm mx-auto" style={{ color: "var(--text-2)", maxWidth: "52ch" }}>
+              Buy, sell, bid, or pay in any token. Every action settles atomically on-chain — you keep custody until the trade completes.
+            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               {
-                step: "01",
-                title: "List your veNFT",
-                desc: "Connect your wallet. Set a price. The NFT stays in your wallet — no escrow, no custody.",
-                color: "#FF0040",
+                icon: ShoppingBag,
+                title: "Buy",
+                desc: "Purchase a listed veBTC or veMEZO at a market-set discount to its locked value.",
+                detail: "The NFT and your payment swap in one atomic transaction.",
               },
               {
-                step: "02",
-                title: "Buyer approves + buys",
-                desc: "Buyers approve the payment token and execute the purchase. Everything happens in a single atomic transaction.",
-                color: "#F7931A",
+                icon: Tag,
+                title: "Sell",
+                desc: "List your position at any price in BTC, MEZO, or MUSD. It stays in your wallet until it sells.",
+                detail: "Escrowless — cancel anytime, no penalty.",
               },
               {
-                step: "03",
-                title: "Atomic settlement",
-                desc: "NFT transfers to the buyer, payment routes to the seller. If anything fails, the entire transaction reverts.",
-                color: "#10B981",
+                icon: Gavel,
+                title: "Bid",
+                desc: "Don't see your price? Make an offer on any veNFT. The owner accepts it on-chain.",
+                detail: "Your funds stay in your wallet until a bid is accepted.",
               },
-            ].map((item, i) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.55, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                className="relative p-7 rounded-2xl group"
-                style={{
-                  background: "var(--bg-1)",
-                  border: "1px solid var(--border-subtle)",
-                  boxShadow: "var(--shadow-md)",
-                  transition: "border-color 220ms var(--ease-spring), box-shadow 220ms var(--ease-spring), transform 220ms var(--ease-spring)",
-                }}
-                whileHover={{
-                  y: -3,
-                  transition: { type: "spring", stiffness: 300, damping: 22 },
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = `${item.color}28`;
-                  e.currentTarget.style.boxShadow = `var(--shadow-card-hover), 0 0 0 1px ${item.color}12`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "var(--border-subtle)";
-                  e.currentTarget.style.boxShadow = "var(--shadow-md)";
-                }}
-              >
-                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-2xl" style={{ background: `linear-gradient(90deg, ${item.color}, transparent)`, opacity: 0.6 }} />
-                <span
-                  className="text-[11px] font-black tracking-widest mb-5 block"
-                  style={{ color: item.color }}
+              {
+                icon: ArrowLeftRight,
+                title: "Pay in any token",
+                desc: "Pay with BTC even when a listing is priced in MUSD — Vezo routes the swap for you.",
+                detail: "Converted through Mezo's on-chain DEX automatically.",
+              },
+            ].map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.title}
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  className="nft-card p-6 rounded-2xl"
+                  style={{ background: "var(--bg-1)" }}
                 >
-                  {item.step}
-                </span>
-                <h3 className="text-lg font-bold mb-3" style={{ letterSpacing: "-0.03em", color: "var(--text-1)" }}>
-                  {item.title}
-                </h3>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-2)" }}>
-                  {item.desc}
-                </p>
-              </motion.div>
-            ))}
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-5"
+                    style={{ background: "rgba(255,0,64,0.08)", border: "1px solid rgba(255,0,64,0.16)" }}
+                  >
+                    <Icon style={{ width: 18, height: 18, color: "#FF0040" }} />
+                  </div>
+                  <h3 className="text-[17px] font-bold mb-2" style={{ letterSpacing: "-0.02em", color: "var(--text-1)" }}>
+                    {item.title}
+                  </h3>
+                  <p className="text-[13.5px] leading-relaxed mb-3" style={{ color: "var(--text-2)" }}>
+                    {item.desc}
+                  </p>
+                  <p className="text-[12px] leading-relaxed pt-3" style={{ color: "var(--text-3)", borderTop: "1px solid var(--border-subtle)" }}>
+                    {item.detail}
+                  </p>
+                </motion.div>
+              );
+            })}
           </div>
+
+          {/* Atomic / escrowless footnote */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="flex items-start gap-3 mt-6 p-5 rounded-2xl"
+            style={{ background: "var(--bg-2)", border: "1px solid var(--border-subtle)" }}
+          >
+            <ShieldCheck style={{ width: 18, height: 18, color: "#10B981", flexShrink: 0, marginTop: 1 }} />
+            <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-2)" }}>
+              <span className="font-semibold" style={{ color: "var(--text-1)" }}>Escrowless and atomic.</span>{" "}
+              Sellers keep custody until the moment of sale — the NFT transfers first, then payment routes, in a single transaction. If anything is off, the whole trade reverts. No custody, no counterparty risk.
+            </p>
+          </motion.div>
         </div>
       </section>
 

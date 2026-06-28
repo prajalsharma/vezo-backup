@@ -62,7 +62,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className="light" suppressHydrationWarning>
+      <head>
+        {/* Apply the saved theme before paint (default: light) — avoids a flash. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('vezo-theme');var d=t==='dark';var c=document.documentElement.classList;c.toggle('dark',d);c.toggle('light',!d);}catch(e){}})();",
+          }}
+        />
+      </head>
       <body
         className={`${outfit.variable} font-sans min-h-[100dvh] antialiased`}
         style={{ background: "var(--bg)", color: "var(--text-1)" }}

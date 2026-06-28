@@ -47,11 +47,10 @@ function VezoLogotype() {
 
 // ─── Theme toggle hook ────────────────────────────────────────────────────────
 function useTheme() {
-  const [isDark, setIsDark] = useState(true);
+  const [isDark, setIsDark] = useState(false); // default: light
   useEffect(() => {
     const saved = localStorage.getItem("vezo-theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const dark = saved ? saved === "dark" : prefersDark;
+    const dark = saved === "dark"; // default light unless the user chose dark
     setIsDark(dark);
     applyTheme(dark);
   }, []);

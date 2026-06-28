@@ -122,6 +122,48 @@ function StateBlock({ icon: Icon, title, sub }: { icon: any; title: string; sub:
   );
 }
 
+// ─── Mobile card (table doesn't fit a phone) ─────────────────────────────────
+function MobileActivityCard({ activity, explorer }: { activity: any; explorer: string }) {
+  const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
+  return (
+    <div className="rounded-xl p-3.5" style={{ background: "var(--bg-1)", border: "1px solid var(--border-subtle)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <EventPill type={activity.type} />
+        <a
+          href={activity.transactionHash ? `${explorer}/tx/${activity.transactionHash}` : undefined}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[11px] font-medium tabular-nums"
+          style={{ color: "var(--text-3)", fontVariantNumeric: "tabular-nums" }}
+        >
+          <Clock style={{ width: 10, height: 10 }} />
+          {formatTime(activity.timestamp)}
+        </a>
+      </div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: activity.collection === "veBTC" ? "#F7931A" : "#4A90E2" }} />
+            <span className="text-[13px] font-semibold">
+              {activity.collection} <span className="tabular-nums" style={{ color: "var(--text-2)", fontVariantNumeric: "tabular-nums" }}>#{activity.tokenId.toString()}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-1 text-[10.5px] font-mono" style={{ color: "var(--text-3)" }}>
+            <span>{activity.from ? short(activity.from) : "—"}</span>
+            {activity.to && <><ArrowUpRight style={{ width: 9, height: 9 }} /><span>{short(activity.to)}</span></>}
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[15px] font-bold tabular-nums" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {activity.price}<span className="text-[10px] font-semibold ml-1" style={{ color: "var(--text-3)" }}>{activity.paymentToken}</span>
+          </p>
+          <div className="mt-0.5">{formatDiscount(activity.discountBps)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ActivityClient() {
   const { network, contracts } = useNetwork();
   const { events, isLoading, error, isDeployed } = useActivityFeed(100);
@@ -200,11 +242,12 @@ export default function ActivityClient() {
             sub="Be the first to list a veNFT and provide liquidity to the Mezo ecosystem."
           />
         ) : (
+          <>
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="rounded-2xl overflow-hidden"
+            className="hidden md:block rounded-2xl overflow-hidden"
             style={{
               background: "var(--bg-1)",
               border: "1px solid var(--border-subtle)",
@@ -362,6 +405,14 @@ export default function ActivityClient() {
               </table>
             </div>
           </motion.div>
+
+          {/* Mobile — stacked cards */}
+          <div className="md:hidden space-y-2.5">
+            {events.map((activity, index) => (
+              <MobileActivityCard key={`m-${activity.transactionHash}-${index}`} activity={activity} explorer={contracts.explorer} />
+            ))}
+          </div>
+          </>
         )}
 
         {/* ── Audit / explorer footer bar ── */}
