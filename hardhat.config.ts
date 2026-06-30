@@ -29,7 +29,8 @@ const config: HardhatUserConfig = {
       accounts: [DEPLOYER_KEY],
     },
     mezomainnet: {
-      url: process.env.MAINNET_RPC_URL || "https://rpc.mezo.org",
+      // rpc.mezo.org no longer resolves; use a working public Mezo mainnet RPC.
+      url: process.env.MAINNET_RPC_URL || "https://mainnet.mezo.public.validationcloud.io",
       chainId: 31612,
       accounts: [DEPLOYER_KEY],
     },
