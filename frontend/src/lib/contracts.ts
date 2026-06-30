@@ -55,14 +55,14 @@ export const CONTRACTS = {
     adapter:       addr("NEXT_PUBLIC_ADAPTER_MAINNET",        "0x8EC595099030aB282511c87cAF104E734418Eff5"),
     router:        addr("NEXT_PUBLIC_ROUTER_MAINNET",         "0xA4098F23aA2883DA13A714982d89BFB403718fb9"),
     admin:         addr("NEXT_PUBLIC_ADMIN_MAINNET",          "0x5bBc2d83D0786Bf2Bc56096d832e6B7cfcca9396"),
-    bidding:       addr("NEXT_PUBLIC_BIDDING_MAINNET",        "0xB61Ff06218D9784D71072ebc6921C682751cba3C"),
+    // VeNFTBidding — redeployed with the acceptBid self-routing fix (live).
+    bidding:       addr("NEXT_PUBLIC_BIDDING_MAINNET",        "0xef35dc538b50549e95687a51e8aa542D485ea384"),
     snapshotStore: addr("NEXT_PUBLIC_SNAPSHOT_STORE_MAINNET", "0xffCE94434A5b4b0C21a66C0E0183345452AA5424"),
     oracleHub:     addr("NEXT_PUBLIC_ORACLE_HUB_MAINNET",     "0x8bE4D741353b0B7724153B25F772a595bDA2C588"),
     quoteRouter:   addr("NEXT_PUBLIC_QUOTE_ROUTER_MAINNET",   "0x7ED3d6793273f434851385854d2779d20c90b3A5"),
-    swapRouter:    addr("NEXT_PUBLIC_SWAP_ROUTER_MAINNET",    "0x83a9F46C084184ae8f3B4eB4265FB081823E5013"),
-    // SwapPaymentRouter (pay-with-any-token via Velodrome + buyNFT). Not yet deployed;
-    // set NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET after deploy to enable the swap UI.
-    swapPaymentRouter: addr("NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET", ZERO_ADDRESS),
+    swapRouter:    addr("NEXT_PUBLIC_SWAP_ROUTER_MAINNET",    "0x1eB4927A739F40D36EFCf05ED5cC80cE9ADe9fD7"),
+    // SwapPaymentRouter (pay-with-any-token via Velodrome + buyNFT) — deployed & live.
+    swapPaymentRouter: addr("NEXT_PUBLIC_SWAP_PAYMENT_ROUTER_MAINNET", "0x638Bab65738bA7BcD47D3c1d6Cb4eaf6CC872617"),
     // Mezo's Velodrome-v2 PoolFactory (resolves the BTC/MUSD pool for swaps).
     poolFactory: addr("NEXT_PUBLIC_POOL_FACTORY_MAINNET", "0x83FE469C636C4081b87bA5b3Ae9991c6Ed104248"),
   },

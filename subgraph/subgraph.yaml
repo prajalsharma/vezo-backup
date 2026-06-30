@@ -38,11 +38,10 @@ dataSources:
     name: VeNFTBidding
     network: mezo-mainnet
     source:
-      # IMPORTANT: update this to the REDEPLOYED VeNFTBidding address (the fixed one)
-      # after you run the v2 deploy. Current placeholder is the existing one.
-      address: "0xB61Ff06218D9784D71072ebc6921C682751cba3C"
+      # Redeployed VeNFTBidding (the acceptBid self-routing fix), live on mainnet.
+      address: "0xef35dc538b50549e95687a51e8aa542D485ea384"
       abi: VeNFTBidding
-      startBlock: 9413536 # current bidding deploy block — UPDATE to the redeployed address + block after the v2 deploy
+      startBlock: 10062384 # new VeNFTBidding deploy block (verified on-chain)
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
