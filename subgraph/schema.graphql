@@ -1,0 +1,53 @@
+# Vezo marketplace subgraph schema.
+# Indexes the VeNFTMarketplace + VeNFTBidding events into queryable entities so
+# the frontend can list active listings / activity without scanning every slot
+# over RPC.
+
+type Listing @entity {
+  id: ID! # listingId (string)
+  listingId: BigInt!
+  seller: Bytes!
+  collection: Bytes!
+  tokenId: BigInt!
+  price: BigInt!
+  paymentToken: Bytes!
+  active: Boolean! # false once cancelled or sold
+  cancelled: Boolean!
+  sold: Boolean!
+  buyer: Bytes
+  createdAt: BigInt! # block timestamp of Listed
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+}
+
+type Bid @entity {
+  id: ID! # bidId (string)
+  bidId: BigInt!
+  bidder: Bytes!
+  collection: Bytes!
+  tokenId: BigInt!
+  paymentToken: Bytes!
+  amount: BigInt!
+  expiry: BigInt!
+  active: Boolean! # false once cancelled or accepted
+  accepted: Boolean!
+  cancelled: Boolean!
+  createdAt: BigInt!
+}
+
+# Immutable append-only log powering the Activity feed.
+type ActivityEvent @entity(immutable: true) {
+  id: ID! # txHash-logIndex
+  type: String! # "listed" | "sale" | "cancelled" | "bid" | "bidAccepted" | "bidCancelled"
+  listingId: BigInt
+  bidId: BigInt
+  collection: Bytes
+  tokenId: BigInt
+  price: BigInt
+  paymentToken: Bytes
+  from: Bytes # seller / bidder depending on type
+  to: Bytes # buyer / accepter depending on type
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+}

@@ -1,0 +1,16 @@
+{
+  "name": "vezo-subgraph",
+  "version": "1.0.0",
+  "description": "Goldsky subgraph indexing Vezo marketplace listings, bids, and activity",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy": "goldsky subgraph deploy vezo-marketplace/1.0.0 --path .",
+    "create-local": "graph create --node http://localhost:8020/ vezo-marketplace",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 vezo-marketplace"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.80.0",
+    "@graphprotocol/graph-ts": "0.35.1"
+  }
+}

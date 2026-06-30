@@ -1,0 +1,63 @@
+specVersion: 1.0.0
+description: Vezo veNFT marketplace — listings, bids, and activity
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: VeNFTMarketplace
+    # Goldsky network slug for Mezo mainnet. Confirm the exact slug in the Goldsky
+    # dashboard (custom-chain). startBlock = the marketplace's deploy block (set it
+    # to avoid syncing from genesis — see README).
+    network: mezo-mainnet
+    source:
+      address: "0x293ba099c5Cf32af54013F00fEe8D2EA1cad8570"
+      abi: VeNFTMarketplace
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/marketplace.ts
+      entities:
+        - Listing
+        - ActivityEvent
+      abis:
+        - name: VeNFTMarketplace
+          file: ./abis/VeNFTMarketplace.json
+      eventHandlers:
+        - event: Listed(indexed uint256,indexed address,indexed address,uint256,uint256,address)
+          handler: handleListed
+        - event: Cancelled(indexed uint256)
+          handler: handleCancelled
+        - event: Purchased(indexed uint256,indexed address,indexed address,uint256)
+          handler: handlePurchased
+        - event: PriceUpdated(indexed uint256,uint256,uint256)
+          handler: handlePriceUpdated
+
+  - kind: ethereum
+    name: VeNFTBidding
+    network: mezo-mainnet
+    source:
+      # IMPORTANT: update this to the REDEPLOYED VeNFTBidding address (the fixed one)
+      # after you run the v2 deploy. Current placeholder is the existing one.
+      address: "0xB61Ff06218D9784D71072ebc6921C682751cba3C"
+      abi: VeNFTBidding
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/bidding.ts
+      entities:
+        - Bid
+        - ActivityEvent
+      abis:
+        - name: VeNFTBidding
+          file: ./abis/VeNFTBidding.json
+      eventHandlers:
+        - event: BidCreated(indexed uint256,indexed address,indexed address,uint256,address,uint256,uint256)
+          handler: handleBidCreated
+        - event: BidCancelled(indexed uint256,indexed address)
+          handler: handleBidCancelled
+        - event: BidAccepted(indexed uint256,indexed address,indexed address,address,uint256,uint256)
+          handler: handleBidAccepted

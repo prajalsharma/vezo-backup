@@ -1,0 +1,38 @@
+[
+  {
+    "anonymous": false,
+    "name": "BidCreated",
+    "type": "event",
+    "inputs": [
+      { "indexed": true, "name": "bidId", "type": "uint256" },
+      { "indexed": true, "name": "bidder", "type": "address" },
+      { "indexed": true, "name": "collection", "type": "address" },
+      { "indexed": false, "name": "tokenId", "type": "uint256" },
+      { "indexed": false, "name": "paymentToken", "type": "address" },
+      { "indexed": false, "name": "amount", "type": "uint256" },
+      { "indexed": false, "name": "expiry", "type": "uint256" }
+    ]
+  },
+  {
+    "anonymous": false,
+    "name": "BidCancelled",
+    "type": "event",
+    "inputs": [
+      { "indexed": true, "name": "bidId", "type": "uint256" },
+      { "indexed": true, "name": "bidder", "type": "address" }
+    ]
+  },
+  {
+    "anonymous": false,
+    "name": "BidAccepted",
+    "type": "event",
+    "inputs": [
+      { "indexed": true, "name": "bidId", "type": "uint256" },
+      { "indexed": true, "name": "seller", "type": "address" },
+      { "indexed": true, "name": "bidder", "type": "address" },
+      { "indexed": false, "name": "collection", "type": "address" },
+      { "indexed": false, "name": "tokenId", "type": "uint256" },
+      { "indexed": false, "name": "amount", "type": "uint256" }
+    ]
+  }
+]

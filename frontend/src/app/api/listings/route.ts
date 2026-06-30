@@ -98,6 +98,46 @@ function computeVotingPower(amount: bigint, lockEnd: bigint, isVeBTC: boolean, n
   return (amount * capped) / maxTime;
 }
 
+// Subgraph (Goldsky) shape matching the on-chain Raw rows. When SUBGRAPH_URL is
+// set we read the active list from the index instead of scanning every slot.
+type RawRow = {
+  seller: string; collection: string; tokenId: bigint; price: bigint;
+  paymentToken: string; createdAt: bigint; active: boolean;
+  slot: number; collKey: "veBTC" | "veMEZO";
+};
+
+async function fetchActiveFromSubgraph(url: string, veBTC: string, veMEZO: string): Promise<RawRow[]> {
+  const query = `{ listings(first: 1000, where: { active: true }) {
+    listingId seller collection tokenId price paymentToken createdAt
+  } }`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+  });
+  if (!res.ok) throw new Error(`subgraph ${res.status}`);
+  const json = await res.json();
+  if (json.errors) throw new Error("subgraph query error");
+  const rows: RawRow[] = [];
+  for (const l of json.data.listings as Record<string, string>[]) {
+    const coll = l.collection.toLowerCase();
+    const collKey = coll === veBTC ? "veBTC" : coll === veMEZO ? "veMEZO" : null;
+    if (!collKey) continue;
+    rows.push({
+      seller: l.seller,
+      collection: l.collection,
+      tokenId: BigInt(l.tokenId),
+      price: BigInt(l.price),
+      paymentToken: l.paymentToken,
+      createdAt: BigInt(l.createdAt),
+      active: true,
+      slot: Number(l.listingId),
+      collKey,
+    });
+  }
+  return rows;
+}
+
 export async function GET(req: NextRequest) {
   const network = req.nextUrl.searchParams.get("network") === "testnet" ? "testnet" : "mainnet";
   const rpc = RPC[network];
@@ -108,31 +148,46 @@ export async function GET(req: NextRequest) {
   const nowSec = BigInt(Math.floor(Date.now() / 1000));
 
   try {
-    // 1. nextListingId — a transport failure here is fatal (client keeps prev data)
-    const nextIdHex = await ethCall(rpc, marketplace, "0xaaccf1ec");
-    if (nextIdHex === "revert") throw new Error("nextListingId reverted");
-    const total = Number(toBig(nextIdHex));
-
-    // 2. scan every slot (batched), keep active listings on a known collection
-    const BATCH = 40;
     type Raw = NonNullable<ReturnType<typeof parseListing>> & { slot: number; collKey: "veBTC" | "veMEZO" };
-    const rawActive: Raw[] = [];
-    for (let b = 0; b < total; b += BATCH) {
-      const batch = Array.from({ length: Math.min(BATCH, total - b) }, (_, k) => b + k);
-      const parsed = await Promise.all(
-        batch.map(async (i) => {
-          const arg = i.toString(16).padStart(64, "0");
-          const res = await ethCall(rpc, marketplace, "0xde74e57b" + arg);
-          if (res === "revert") return null;
-          const l = parseListing(res);
-          return l ? { ...l, slot: i } : null;
-        })
-      );
-      for (const l of parsed) {
-        if (!l || !l.active) continue;
-        const c = l.collection.toLowerCase();
-        if (c === veBTC) rawActive.push({ ...l, collKey: "veBTC" });
-        else if (c === veMEZO) rawActive.push({ ...l, collKey: "veMEZO" });
+    let total = 0;
+    let rawActive: Raw[] = [];
+    let usedSubgraph = false;
+
+    // 1. Preferred: read the active list from the subgraph index (no slot scan).
+    const subgraphUrl = process.env.SUBGRAPH_URL;
+    if (subgraphUrl) {
+      try {
+        rawActive = (await fetchActiveFromSubgraph(subgraphUrl, veBTC, veMEZO)) as Raw[];
+        total = rawActive.length;
+        usedSubgraph = true;
+      } catch {
+        usedSubgraph = false; // fall back to the on-chain scan below
+      }
+    }
+
+    // 2. Fallback: scan every listing slot over RPC.
+    if (!usedSubgraph) {
+      const nextIdHex = await ethCall(rpc, marketplace, "0xaaccf1ec");
+      if (nextIdHex === "revert") throw new Error("nextListingId reverted");
+      total = Number(toBig(nextIdHex));
+      const BATCH = 40;
+      for (let b = 0; b < total; b += BATCH) {
+        const batch = Array.from({ length: Math.min(BATCH, total - b) }, (_, k) => b + k);
+        const parsed = await Promise.all(
+          batch.map(async (i) => {
+            const arg = i.toString(16).padStart(64, "0");
+            const res = await ethCall(rpc, marketplace, "0xde74e57b" + arg);
+            if (res === "revert") return null;
+            const l = parseListing(res);
+            return l ? { ...l, slot: i } : null;
+          })
+        );
+        for (const l of parsed) {
+          if (!l || !l.active) continue;
+          const c = l.collection.toLowerCase();
+          if (c === veBTC) rawActive.push({ ...l, collKey: "veBTC" });
+          else if (c === veMEZO) rawActive.push({ ...l, collKey: "veMEZO" });
+        }
       }
     }
 
